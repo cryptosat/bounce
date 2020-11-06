@@ -139,8 +139,8 @@ fn main() {
 
     println!("Hello, {}!", &name[..name.len() - 1]);
 
-    // Sign
-    let (ctx, sh, _, privOh) = fixture_token_and_key_pair().unwrap();
+    // Generate public and private key pairs.
+    let (ctx, sh, pubOh, privOh) = fixture_token_and_key_pair().unwrap();
 
     let parameter = CK_RSA_PKCS_PSS_PARAMS {
         hashAlg: CKM_SHA256,
@@ -174,4 +174,25 @@ fn main() {
     );
     let signature = signature.unwrap();
     println!("Signature bytes after C_Sign: {:?}", &signature);
+
+    let res = ctx.verify_init(sh, &mechanism, pubOh);
+    assert!(
+        res.is_ok(),
+        "failed to call C_VerifyInit({}, {:?}, {}) with parameter: {}",
+        sh,
+        &mechanism,
+        pubOh,
+        res.unwrap_err()
+    );
+
+    let res = ctx.verify(sh, &data, &signature);
+    assert!(
+        res.is_ok(),
+        "failed to call C_Verify({}, {:?}, {:?}): {}",
+        sh,
+        &data,
+        &signature,
+        res.unwrap_err()
+    );
+    println!("Sucessfully verified signature");
 }
