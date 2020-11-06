@@ -8,6 +8,7 @@ use std::mem;
 use std::path::PathBuf;
 use std::{env, ptr};
 
+// This finds PKCS11 module installed on your machine.
 fn pkcs11_module_name() -> PathBuf {
     let default_path =
         option_env!("PKCS11_SOFTHSM2_MODULE").unwrap_or("/usr/local/lib/softhsm/libsofthsm2.so");
@@ -28,13 +29,19 @@ fn pkcs11_module_name() -> PathBuf {
 /// This is the starting point for all tests that are acting on the token.
 /// If you look at the tests here in a "serial" manner, if all the tests are working up until
 /// here, this will always succeed.
+// Ctx is a wrapper around PKCS11 module
+// CK_SESSION_HANDLE is a Cryptoki-assigned value that identifies a session, valid session handles
+// in Cryptoki always have nonzero values.
 fn fixture_token() -> Result<(Ctx, CK_SESSION_HANDLE), Error> {
     let ctx = Ctx::new_and_initialize(pkcs11_module_name()).unwrap();
     let slots = ctx.get_slot_list(false).unwrap();
+    // Assumes that the token in slot 0, is labeled "rust-unit-test" with pin 1234.
     let pin = Some("1234");
     const LABEL: &str = "rust-unit-test";
     let slot = *slots.first().ok_or(Error::Module("no slot available"))?;
     ctx.init_token(slot, pin, LABEL)?;
+    // CKF_SERIAL_SESSION is for backward compatibility.
+    // CKF_RW_SESSION set if the session is read/write
     let sh = ctx.open_session(slot, CKF_SERIAL_SESSION | CKF_RW_SESSION, None, None)?;
     ctx.login(sh, CKU_SO, pin)?;
     ctx.init_pin(sh, pin)?;
@@ -51,7 +58,12 @@ fn fixture_key_pair(
     signVerify: bool,
     encryptDecrypt: bool,
     recover: bool,
+    // CK_OBJECT_HANDLE is a token-specific identifier for an object. In this function's context,
+    // these two CK_BOJECT_HANDLE refer to public and private keys.
 ) -> Result<(CK_OBJECT_HANDLE, CK_OBJECT_HANDLE), Error> {
+    // CK_MECHANISM is a structure that specifies a particular mechanism and any parameters it
+    // requires. This code generates RSA pub/priv key pairs with 4096 bits and 65537 as public
+    // exponent.
     let mechanism = CK_MECHANISM {
         mechanism: CKM_RSA_PKCS_KEY_PAIR_GEN,
         pParameter: ptr::null_mut(),
@@ -142,9 +154,19 @@ fn main() {
     // Generate public and private key pairs.
     let (ctx, sh, pubOh, privOh) = fixture_token_and_key_pair().unwrap();
 
+    // CK_RSA_PKCS_PSS_PARAMS provides parameters to the CKM_RSA_PKCS_PSS mechanism. Probabilistic
+    // signature scheme (PSS) is a cryptographic signature scheme designed by Mihir Bellare
+    // and Phillip Rogaway. RSA-PSS is an adaptation of their work.
     let parameter = CK_RSA_PKCS_PSS_PARAMS {
+        // hashAlg: hash algorithm used in the PSS encoding.
         hashAlg: CKM_SHA256,
+        // Mask generation function (MGF) is a cryptographic primitive similar to a cryptographic
+        // hash function except that while a hash function's output is a fixed size, a MGF supports
+        // output of a variable length.
+        // CKG_MGF1_SHA256
         mgf: CKG_MGF1_SHA256,
+        // sLen: length, in bytes, of the salt value used in the PSS encoding; typical values are
+        // the length of the message hash and zero
         sLen: 32,
     };
     let mechanism = CK_MECHANISM {
