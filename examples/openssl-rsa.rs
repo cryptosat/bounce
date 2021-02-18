@@ -1,5 +1,6 @@
 extern crate openssl;
 
+use openssl::hash::hash;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
@@ -13,7 +14,7 @@ fn main() {
     println!("Data1 size in bytes: {}", std::mem::size_of_val(data1));
 
     // Generate a keypair
-    let keypair = Rsa::generate(1024).unwrap();
+    let keypair = Rsa::generate(2048).unwrap();
     let keypair = PKey::from_rsa(keypair).unwrap();
 
     // Sign the data
@@ -27,4 +28,7 @@ fn main() {
     let mut verifier = Verifier::new(MessageDigest::sha256(), &keypair).unwrap();
     verifier.update(data0).unwrap();
     assert!(verifier.verify(&signature).unwrap());
+
+    let h = hash(MessageDigest::sha256(), data0).unwrap();
+    println!("Size of hash in bytes: {}", std::mem::size_of_val(&*h));
 }
