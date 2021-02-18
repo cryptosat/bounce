@@ -7,6 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 num-bigint = "0.2.6"
-pkcs11 = "0.5.0"
 openssl-sys = "0.9"
 openssl = "0.10"
+pkcs11 = "0.5.0"
+rand = { version = "0.6" }
+secp256k1 = {version = "0.20.1", features = ["rand", "bitcoin_hashes"]}
+
+[[bin]]
+name ="cubesat"
+path = "bin/cubesat.rs"
