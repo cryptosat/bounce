@@ -9,6 +9,9 @@ edition = "2018"
 rand = { version = "0.6" }
 secp256k1 = { version = "0.20.1", features = ["rand", "bitcoin_hashes"] }
 bitcoin_hashes = { version = "0.9" }
+tonic = "0.4"
+prost = "0.7"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 num-bigint = "0.2.6"
@@ -16,6 +19,13 @@ openssl-sys = "0.9"
 openssl = "0.10"
 pkcs11 = "0.5.0"
 
+[build-dependencies]
+tonic-build = "0.4"
+
 [[bin]]
 name = "cubesat"
-path = "bin/cubesat.rs"
+path = "src/cubesat.rs"
+
+[[bin]]
+name = "ground-station"
+path = "src/ground-station.rs"
