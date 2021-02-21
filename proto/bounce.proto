@@ -3,6 +3,6 @@ package bounce;
 
 service Signer { rpc Sign(SignRequest) returns (SignResponse); }
 
-message SignRequest { string message = 1; }
+message SignRequest { bytes message = 1; }
 
-message SignResponse { string signature = 1; }
+message SignResponse { bytes signature = 1; }

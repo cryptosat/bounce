@@ -57,9 +57,9 @@ impl Signer for Cubesat {
     async fn sign(&self, request: Request<SignRequest>) -> Result<Response<SignResponse>, Status> {
         println!("Got a request: {:?}", request);
 
-        match self.sign(request.into_inner().message.as_bytes()) {
-            Ok(_sig) => Ok(Response::new(bounce::SignResponse {
-                signature: "hello".to_string(),
+        match self.sign(&request.into_inner().message) {
+            Ok(sig) => Ok(Response::new(bounce::SignResponse {
+                signature: sig.serialize_compact().to_vec(),
             })),
             Err(_e) => Err(tonic::Status::internal("Failed to sign")),
         }
