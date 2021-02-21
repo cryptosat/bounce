@@ -5,4 +5,7 @@ service Signer { rpc Sign(SignRequest) returns (SignResponse); }
 
 message SignRequest { bytes message = 1; }
 
-message SignResponse { bytes signature = 1; }
+message SignResponse {
+  bytes pubkey = 1;
+  bytes signature = 2;
+}

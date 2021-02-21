@@ -7,9 +7,6 @@ use secp256k1::Secp256k1;
 
 use bitcoin_hashes::{sha256, Hash};
 use secp256k1::rand::rngs::OsRng;
-// use secp256k1::{
-//     Error, Message, PublicKey, Secp256k1, SecretKey, Signature, Signing, Verification,
-// };
 use tonic::{transport::Server, Request, Response, Status};
 
 use bounce::signer_server::{Signer, SignerServer};
@@ -59,6 +56,7 @@ impl Signer for Cubesat {
 
         match self.sign(&request.into_inner().message) {
             Ok(sig) => Ok(Response::new(bounce::SignResponse {
+                pubkey: self.pubkey.serialize().to_vec(),
                 signature: sig.serialize_compact().to_vec(),
             })),
             Err(_e) => Err(tonic::Status::internal("Failed to sign")),
@@ -88,16 +86,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //     let msg = sha256::Hash::hash(msg);
 //     let msg = Message::from_slice(&msg)?;
 //     Ok(secp.verify(&msg, &sig, &pubkey).is_ok())
-// }
-
-// fn sign<C: Signing>(
-//     secp: &Secp256k1<C>,
-//     msg: &[u8],
-//     seckey: &SecretKey,
-// ) -> Result<Signature, Error> {
-//     let msg = sha256::Hash::hash(msg);
-//     let msg = Message::from_slice(&msg)?;
-//     Ok(secp.sign(&msg, &seckey))
 // }
 
 // fn main() {
