@@ -3,8 +3,10 @@ extern crate secp256k1;
 extern crate tokio;
 extern crate tonic;
 
-// use bitcoin_hashes::{sha256, Hash};
-// use secp256k1::rand::rngs::OsRng;
+use secp256k1::Secp256k1;
+
+use bitcoin_hashes::{sha256, Hash};
+use secp256k1::rand::rngs::OsRng;
 // use secp256k1::{
 //     Error, Message, PublicKey, Secp256k1, SecretKey, Signature, Signing, Verification,
 // };
@@ -16,18 +18,51 @@ pub mod bounce {
     tonic::include_proto!("bounce"); // The string specified here must match the proto package name
 }
 
-#[derive(Debug, Default)]
-pub struct Cubesat {}
+#[derive(Debug)]
+pub struct Cubesat {
+    secp: Secp256k1<secp256k1::SignOnly>,
+    seckey: secp256k1::SecretKey,
+    pubkey: secp256k1::PublicKey,
+}
+
+impl Default for Cubesat {
+    fn default() -> Self {
+        let secp = Secp256k1::new();
+        let mut rng = OsRng::new().unwrap();
+        // generate public and private key pairs.
+        let (seckey, pubkey) = secp.generate_keypair(&mut rng);
+
+        Cubesat {
+            secp: Secp256k1::signing_only(),
+            seckey,
+            pubkey,
+        }
+    }
+}
+
+impl Cubesat {
+    pub fn new() -> Cubesat {
+        Default::default()
+    }
+
+    fn sign(&self, msg: &[u8]) -> Result<secp256k1::Signature, secp256k1::Error> {
+        let msg = sha256::Hash::hash(msg);
+        let msg = secp256k1::Message::from_slice(&msg)?;
+        Ok(self.secp.sign(&msg, &self.seckey))
+    }
+}
 
 #[tonic::async_trait]
 impl Signer for Cubesat {
     async fn sign(&self, request: Request<SignRequest>) -> Result<Response<SignResponse>, Status> {
         println!("Got a request: {:?}", request);
-        let response = bounce::SignResponse {
-            signature:"hello".to_string(),
-        };
 
-        Ok(Response::new(response))
+        match self.sign(request.into_inner().message.as_bytes()) {
+            Ok(_sig) => Ok(Response::new(bounce::SignResponse {
+                signature: "hello".to_string(),
+            })),
+            Err(_e) => Err(tonic::Status::internal("Failed to sign")),
+        }
     }
 }
 
