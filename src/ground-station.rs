@@ -1,3 +1,4 @@
+extern crate chrono;
 extern crate secp256k1;
 extern crate tokio;
 extern crate tonic;
@@ -15,7 +16,8 @@ pub mod bounce {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = SignerClient::connect("http://[::1]:50051").await?;
 
-    let msg = "1";
+    let msg = chrono::Utc::now().to_rfc2822();
+    println!("Message to send: {}", msg);
 
     let request = tonic::Request::new(SignRequest {
         message: msg.as_bytes().to_vec(),
@@ -29,6 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pubkey = PublicKey::from_slice(&response.pubkey)?;
 
     verify(&secp, msg.as_bytes(), sig, pubkey)?;
+    println!("Successfully verified that the message was signed.");
     Ok(())
 }
 
