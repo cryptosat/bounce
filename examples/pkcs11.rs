@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 extern crate num_bigint;
 extern crate pkcs11;
 
