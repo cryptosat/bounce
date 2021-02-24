@@ -1,16 +1,7 @@
-extern crate chrono;
-extern crate secp256k1;
-extern crate tokio;
-extern crate tonic;
-
 use bitcoin_hashes::{sha256, Hash};
 use bounce::signer_client::SignerClient;
 use bounce::SignRequest;
 use secp256k1::{Error, Message, PublicKey, Secp256k1, Signature, Verification};
-
-pub mod bounce {
-    tonic::include_proto!("bounce"); // The string specified here must match the proto package name
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

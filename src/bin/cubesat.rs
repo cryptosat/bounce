@@ -1,19 +1,10 @@
-extern crate bitcoin_hashes;
-extern crate secp256k1;
-extern crate tokio;
-extern crate tonic;
-
-use secp256k1::Secp256k1;
-
 use bitcoin_hashes::{sha256, Hash};
 use secp256k1::rand::rngs::OsRng;
+use secp256k1::Secp256k1;
 use tonic::{transport::Server, Request, Response, Status};
 
 use bounce::signer_server::{Signer, SignerServer};
 use bounce::{SignRequest, SignResponse};
-pub mod bounce {
-    tonic::include_proto!("bounce"); // The string specified here must match the proto package name
-}
 
 #[derive(Debug)]
 pub struct Cubesat {
@@ -55,7 +46,7 @@ impl Signer for Cubesat {
         println!("Got a request: {:?}", request);
 
         match self.sign(&request.into_inner().message) {
-            Ok(sig) => Ok(Response::new(bounce::SignResponse {
+            Ok(sig) => Ok(Response::new(SignResponse {
                 pubkey: self.pubkey.serialize().to_vec(),
                 signature: sig.serialize_compact().to_vec(),
             })),

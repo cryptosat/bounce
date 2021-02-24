@@ -25,8 +25,8 @@ tonic-build = "0.4"
 
 [[bin]]
 name = "cubesat"
-path = "src/cubesat.rs"
+path = "src/bin/cubesat.rs"
 
 [[bin]]
 name = "ground-station"
-path = "src/ground-station.rs"
+path = "src/bin/ground-station.rs"
