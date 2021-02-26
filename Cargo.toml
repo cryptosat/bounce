@@ -24,10 +24,6 @@ pkcs11 = "0.5.0"
 tonic-build = "0.4"
 
 [[bin]]
-name = "cubesat"
-path = "src/bin/cubesat.rs"
-
-[[bin]]
 name = "ground-station"
 path = "src/bin/ground-station.rs"
 
