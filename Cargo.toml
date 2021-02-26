@@ -30,3 +30,7 @@ path = "src/bin/cubesat.rs"
 [[bin]]
 name = "ground-station"
 path = "src/bin/ground-station.rs"
+
+[[bin]]
+name = "comms-hub"
+path = "src/bin/comms-hub.rs"
