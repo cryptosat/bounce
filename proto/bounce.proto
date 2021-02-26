@@ -4,7 +4,7 @@ package bounce;
 message BounceRequest { bytes message = 1; }
 
 message BounceResponse {
-  bytes aggregate_publick_key = 1;
+  repeated bytes public_keys = 1;
   bytes aggregate_signature = 2;
 }
 
