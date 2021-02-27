@@ -1,19 +1,19 @@
 extern crate bls_signatures_rs;
+extern crate bn;
 extern crate hex;
+extern crate rand;
 
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
+use rand::{thread_rng, Rng};
 
 fn main() {
     // Inputs: Secret Key, Public Key (derived) & Message
 
-    // Secret key one
-    let secret_key_1 =
-        hex::decode("c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721").unwrap();
+    let mut rng = thread_rng();
 
-    // Secret key two
-    let secret_key_2 =
-        hex::decode("a55e93edb1350916bf5beea1b13d8f198ef410033445bcb645b65be5432722f1").unwrap();
+    let secret_key_1: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let secret_key_2: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
 
     // Derive public keys from secret key
     let public_key_1 = Bn256.derive_public_key(&secret_key_1).unwrap();

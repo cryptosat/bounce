@@ -16,6 +16,7 @@ tonic = "0.4"
 
 [dev-dependencies]
 bls-signatures-rs = "0.1.0"
+bn = { package = "witnet-bn", version = "0.4.5" }
 hex = "0.4.2"
 num-bigint = "0.2.6"
 openssl = "0.10"
