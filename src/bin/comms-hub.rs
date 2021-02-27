@@ -1,9 +1,10 @@
-use bls_signatures::Serialize;
+use bls_signatures_rs::bn256::Bn256;
+use bls_signatures_rs::MultiSignature;
 use bounce::satellite_server::{Satellite, SatelliteServer};
 use bounce::{AggregateSignature, BounceRequest, BounceResponse, Cubesat};
 use tonic::{transport::Server, Request, Response, Status};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct CommsHub {
     cubesats: Vec<Cubesat>,
 }
@@ -42,23 +43,29 @@ impl Satellite for CommsHub {
         assert_eq!(signatures.public_keys.len(), self.cubesats.len());
         assert_eq!(signatures.signatures.len(), signatures.public_keys.len());
 
-        // TODO: handle error
-        let aggregate_signature = bls_signatures::aggregate(&signatures.signatures).unwrap();
+        let sig_refs: Vec<&[u8]> = signatures.signatures.iter().map(|v| v.as_slice()).collect();
+        let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
 
         // TODO: Fix this assert to pass. The crate I'm using doesn't seem to support signing the same message.
-        assert!(bls_signatures::verify_messages(
-            &aggregate_signature,
-            &[&signatures.msg],
-            &signatures.public_keys
-        ));
+
+        let public_key_refs: Vec<&[u8]> = signatures
+            .public_keys
+            .iter()
+            .map(|v| v.as_slice())
+            .collect();
+        let aggregate_publick_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+        let _ = Bn256
+            .verify(
+                &aggregate_signature,
+                &signatures.msg,
+                &aggregate_publick_key,
+            )
+            .unwrap();
 
         let response = BounceResponse {
-            public_keys: signatures
-                .public_keys
-                .into_iter()
-                .map(|p| p.as_bytes())
-                .collect(),
-            aggregate_signature: aggregate_signature.as_bytes(),
+            public_keys: signatures.public_keys,
+            aggregate_signature: aggregate_signature,
         };
 
         Ok(Response::new(response))

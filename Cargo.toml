@@ -6,7 +6,8 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-bls-signatures = "0.7.1"
+bls-signatures-rs = "0.1.0"
+bn = { package = "witnet-bn", version = "0.4.5" }
 chrono = "0.4"
 prost = "0.7"
 rand = "0.7"
@@ -15,8 +16,6 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 
 [dev-dependencies]
-bls-signatures-rs = "0.1.0"
-bn = { package = "witnet-bn", version = "0.4.5" }
 hex = "0.4.2"
 num-bigint = "0.2.6"
 openssl = "0.10"

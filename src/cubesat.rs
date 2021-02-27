@@ -1,11 +1,11 @@
 use super::AggregateSignature;
-use bls_signatures::{PrivateKey, PublicKey};
-use rand::thread_rng;
+use bls_signatures_rs::bn256::Bn256;
+use bls_signatures_rs::MultiSignature;
+use rand::{thread_rng, Rng};
 
-#[derive(Debug)]
 pub struct Cubesat {
-    private_key: PrivateKey,
-    public_key: PublicKey,
+    private_key: Vec<u8>,
+    public_key: Vec<u8>,
 }
 
 impl Default for Cubesat {
@@ -13,8 +13,8 @@ impl Default for Cubesat {
         let mut rng = thread_rng();
 
         // generate public and private key pairs.
-        let private_key = PrivateKey::generate(&mut rng);
-        let public_key = private_key.public_key();
+        let private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let public_key = Bn256.derive_public_key(&private_key).unwrap();
 
         println!("Cubesat with public_key: {:?}", public_key);
 
@@ -31,11 +31,13 @@ impl Cubesat {
     }
 
     pub fn sign(&self, sigs: &mut AggregateSignature) {
-        let sig = self.private_key.sign(&sigs.msg);
-        assert!(self.public_key.verify(sig, &sigs.msg));
+        let signature = Bn256.sign(&self.private_key, &sigs.msg).unwrap();
+        Bn256
+            .verify(&signature, &sigs.msg, &self.public_key)
+            .unwrap();
         println!("Successfully signed the message {:?}", &sigs.msg);
 
-        sigs.signatures.push(sig);
-        sigs.public_keys.push(self.public_key);
+        sigs.signatures.push(signature);
+        sigs.public_keys.push(self.public_key.clone());
     }
 }
