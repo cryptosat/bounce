@@ -8,4 +8,9 @@ message BounceResponse {
   bytes aggregate_signature = 2;
 }
 
-service Satellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
+service BounceSatellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
+
+message CubesatResponse {
+  // empty precommit is considered as a non-commit.
+  bytes precommit = 1;
+}

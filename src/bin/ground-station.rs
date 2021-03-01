@@ -1,11 +1,11 @@
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
-use bounce::satellite_client::SatelliteClient;
+use bounce::bounce_satellite_client::BounceSatelliteClient;
 use bounce::{BounceRequest, BounceResponse};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = SatelliteClient::connect("http://[::1]:50051").await?;
+    let mut client = BounceSatelliteClient::connect("http://[::1]:50051").await?;
 
     let msg = chrono::Utc::now().to_rfc2822();
     println!("Message to send: {}", msg);

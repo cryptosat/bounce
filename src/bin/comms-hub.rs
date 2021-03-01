@@ -1,6 +1,6 @@
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
-use bounce::satellite_server::{Satellite, SatelliteServer};
+use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{AggregateSignature, BounceRequest, BounceResponse, Cubesat};
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -26,7 +26,7 @@ impl CommsHub {
 }
 
 #[tonic::async_trait]
-impl Satellite for CommsHub {
+impl BounceSatellite for CommsHub {
     async fn bounce(
         &self,
         request: Request<BounceRequest>,
@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let comms_hub = CommsHub::new();
 
     Server::builder()
-        .add_service(SatelliteServer::new(comms_hub))
+        .add_service(BounceSatelliteServer::new(comms_hub))
         .serve(addr)
         .await?;
 
