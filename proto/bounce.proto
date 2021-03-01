@@ -18,9 +18,9 @@ message CubesatRequest {
 
 message CubesatResponse {
   // Whether or not this is aggregated signature and public key
-  boolean aggregated = 1;
+  bool aggregated = 1;
   bytes signature = 2;
   bytes public_key = 3;
 }
 
-service Cubesat { rpc Sign(CubesatRequest) returns (CubesatResponse) }
+service Cubesat { rpc Sign(CubesatRequest) returns (CubesatResponse); }

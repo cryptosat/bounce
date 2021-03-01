@@ -1,4 +1,4 @@
-use super::AggregateSignature;
+use super::{CubesatRequest, CubesatResponse};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
@@ -30,14 +30,37 @@ impl Cubesat {
         Default::default()
     }
 
-    pub fn sign(&self, sigs: &mut AggregateSignature) {
-        let signature = Bn256.sign(&self.private_key, &sigs.msg).unwrap();
-        Bn256
-            .verify(&signature, &sigs.msg, &self.public_key)
+    pub fn sign(&self, request: &CubesatRequest) -> CubesatResponse {
+        let signature = Bn256.sign(&self.private_key, &request.msg).unwrap();
+        let _ = Bn256
+            .verify(&signature, &request.msg, &self.public_key)
             .unwrap();
-        println!("Successfully signed the message {:?}", &sigs.msg);
+        println!("Successfully signed the message {:?}", &request.msg);
 
-        sigs.signatures.push(signature);
-        sigs.public_keys.push(self.public_key.clone());
+        // TODO: use a system wide parameter for the number of cubesats and supermajority
+        let supermajority = 7;
+        if request.signatures.len() + 1 >= supermajority {
+            let mut sig_refs: Vec<&[u8]> =
+                request.signatures.iter().map(|v| v.as_slice()).collect();
+            sig_refs.push(&signature);
+            let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+
+            let mut public_key_refs: Vec<&[u8]> =
+                request.public_keys.iter().map(|v| v.as_slice()).collect();
+            public_key_refs.push(&self.public_key);
+            let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+            CubesatResponse {
+                aggregated: true,
+                signature: aggregate_signature,
+                public_key: aggregate_public_key,
+            }
+        } else {
+            CubesatResponse {
+                aggregated: false,
+                signature,
+                public_key: self.public_key.clone(),
+            }
+        }
     }
 }
