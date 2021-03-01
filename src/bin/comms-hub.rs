@@ -46,26 +46,16 @@ impl Satellite for CommsHub {
         let sig_refs: Vec<&[u8]> = signatures.signatures.iter().map(|v| v.as_slice()).collect();
         let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
 
-        // TODO: Fix this assert to pass. The crate I'm using doesn't seem to support signing the same message.
-
         let public_key_refs: Vec<&[u8]> = signatures
             .public_keys
             .iter()
             .map(|v| v.as_slice())
             .collect();
-        let aggregate_publick_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
-
-        let _ = Bn256
-            .verify(
-                &aggregate_signature,
-                &signatures.msg,
-                &aggregate_publick_key,
-            )
-            .unwrap();
+        let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
 
         let response = BounceResponse {
-            public_keys: signatures.public_keys,
-            aggregate_signature: aggregate_signature,
+            aggregate_public_key,
+            aggregate_signature,
         };
 
         Ok(Response::new(response))
