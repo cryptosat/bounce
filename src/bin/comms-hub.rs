@@ -25,6 +25,18 @@ impl CommsHub {
 
 #[tonic::async_trait]
 impl BounceSatellite for CommsHub {
+    // The bounce function is marked async, so whenever this function is called, we should broadcast
+    // the message to sign to cubesats.
+    // broadcast channel here: CommsHub -> Cubesats, each cubesat needs to see messages in order
+    //  without any loss.
+    //
+    // Whenever the cubesat receive such request, then the cubesat signs and then sends back
+    // the signature (either aggregated or single) to the comms hub.
+    // Multi-producer, single consumer channel here, cubesats to commshub
+    //  and the comms hub needs to check whether the signature is aggregated, if it is aggregated
+    //  then it needs to send it back to the ground station.
+
+    // Sending back can also be managed by a separate thread
     async fn bounce(
         &self,
         request: Request<BounceRequest>,
@@ -65,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let comms_hub = CommsHub::new();
 
+    // This installs a BounceSatelliteServer service.
     Server::builder()
         .add_service(BounceSatelliteServer::new(comms_hub))
         .serve(addr)
