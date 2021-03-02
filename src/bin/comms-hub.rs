@@ -1,24 +1,41 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceRequest, BounceResponse, Cubesat, CubesatRequest};
+use bounce::{BounceRequest, BounceResponse, Cubesat, CubesatRequest, CubesatResponse};
+use tokio::sync::{broadcast, mpsc};
 use tonic::{transport::Server, Request, Response, Status};
 
-#[derive(Default)]
 pub struct CommsHub {
     cubesats: Vec<Cubesat>,
+
+    broadcast_tx: broadcast::Sender<CubesatRequest>,
+    // A broadcast channel that will be shared among the cubesats
+    // A mpsc channel to send back either precommit / noncommit back to the ground station
+    result_rx: mpsc::Receiver<CubesatResponse>,
 }
 
 impl CommsHub {
     pub fn new() -> CommsHub {
+        // TODO: Set appropriate values for the bounds. They're arbitrary values at this point.
+        let (broadcast_tx, _) = broadcast::channel(100);
+        let (result_tx, mut result_rx) = mpsc::channel(100);
+
         let mut cubesats = Vec::new();
         // TODO: Provide constructors with the number of cubesats to have.
         let num_cubesats = 10;
         for _ in 0..num_cubesats {
-            cubesats.push(Cubesat::new());
+            let broadcast_tx = broadcast_tx.clone();
+            let broadcast_rx = broadcast_tx.subscribe();
+            let result_tx = result_tx.clone();
+            let mut c = Cubesat::new(broadcast_rx);
+
+            tokio::spawn(async move {
+                c.run().await;
+            });
         }
 
         Self {
             cubesats,
-            ..Default::default()
+            broadcast_tx,
+            result_rx,
         }
     }
 }
@@ -36,7 +53,7 @@ impl BounceSatellite for CommsHub {
     //  and the comms hub needs to check whether the signature is aggregated, if it is aggregated
     //  then it needs to send it back to the ground station.
 
-    // Sending back can also be managed by a separate thread
+    // Sending back can also be managed by a separate thread.
     async fn bounce(
         &self,
         request: Request<BounceRequest>,
@@ -49,26 +66,32 @@ impl BounceSatellite for CommsHub {
             public_keys: Vec::new(),
         };
 
-        for c in &self.cubesats {
-            let cubesat_response = c.sign(&cubesat_request);
+        // Not sure what kind of error handling needs to happen here.
+        self.broadcast_tx.send(cubesat_request).unwrap();
 
-            if cubesat_response.aggregated {
-                let response = BounceResponse {
-                    aggregate_public_key: cubesat_response.public_key,
-                    aggregate_signature: cubesat_response.signature,
-                };
+        // After broadcastingd the request, now the communications hub will wait for 10 seconds.
+        // If the cubesats don't produce either precommit or non commit within that time frame,
+        // it will just return non-commit.
 
-                return Ok(Response::new(response));
-            } else {
-                cubesat_request.signatures.push(cubesat_response.signature);
-                cubesat_request
-                    .public_keys
-                    .push(cubesat_response.public_key);
+        loop {
+            tokio::select! {
+                maybe_response = self.result_rx.recv() => {
+                    if maybe_response.is_err() {
+                        println!("Received error, exiting...");
+                        return Err(std::result::Error::);
+                    }
+
+                    let cubesat_response = maybe_response.unwrap();
+
+                    let bounce_response = BounceResponse {
+                        aggregate_public_key: cubesat_response.public_key,
+                        aggregate_signature: cubesat_response.signature,
+                    }
+
+                    return Ok(Response::new(cubesat_response));
+                }
             }
         }
-
-        // TODO: this is just to make this file compile, better error handling
-        panic!("failed to get aggregate signature from cubesat");
     }
 }
 
