@@ -9,18 +9,3 @@ message BounceResponse {
 }
 
 service BounceSatellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
-
-message CubesatRequest {
-  bytes msg = 1;
-  repeated bytes signatures = 2;
-  repeated bytes public_keys = 3;
-}
-
-message CubesatResponse {
-  // Whether or not this is aggregated signature and public key
-  bool aggregated = 1;
-  bytes signature = 2;
-  bytes public_key = 3;
-}
-
-service Cubesat { rpc Sign(CubesatRequest) returns (CubesatResponse); }

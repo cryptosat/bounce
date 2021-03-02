@@ -59,13 +59,11 @@ impl Cubesat {
                         let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
 
                         CubesatResponse {
-                            aggregated: true,
                             signature: aggregate_signature,
                             public_key: aggregate_public_key,
                         }
                     } else {
                         CubesatResponse {
-                            aggregated: false,
                             signature,
                             public_key: self.public_key.clone(),
                         }
@@ -98,13 +96,11 @@ impl Cubesat {
             let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
 
             CubesatResponse {
-                aggregated: true,
                 signature: aggregate_signature,
                 public_key: aggregate_public_key,
             }
         } else {
             CubesatResponse {
-                aggregated: false,
                 signature,
                 public_key: self.public_key.clone(),
             }
