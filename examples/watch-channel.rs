@@ -1,18 +1,38 @@
 extern crate tokio;
 
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
+
+pub struct Receiver {
+    id: usize,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (tx, mut rx) = watch::channel("hello");
+    let num_workers = 10;
+    let (mpsc_tx, mut mpsc_rx) = mpsc::channel(num_workers);
+    let (watch_tx, watch_rx) = watch::channel("hello");
 
-    tokio::spawn(async move {
-        while rx.changed().await.is_ok() {
-            println!("received = {:?}", *rx.borrow());
-        }
-    });
+    for i in 0..num_workers {
+        let receiver = Receiver { id: i };
+        let mut watch_rx = watch_rx.clone();
+        let mpsc_tx = mpsc_tx.clone();
 
-    tx.send("world")?;
+        tokio::spawn(async move {
+            while watch_rx.changed().await.is_ok() {
+                println!("{}, received = {:?}", receiver.id, *watch_rx.borrow());
+                if let Err(_) = mpsc_tx.send(receiver.id).await {
+                    println!("receiver dropped");
+                    break;
+                }
+            }
+        });
+    }
+
+    watch_tx.send("world")?;
+
+    while let Some(id) = mpsc_rx.recv().await {
+        println!("Received from {}", id);
+    }
 
     Ok(())
 }
