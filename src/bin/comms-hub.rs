@@ -1,24 +1,21 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
+use bounce::CubesatRequest;
 use bounce::{BounceRequest, BounceResponse, Cubesat};
-use bounce::{CubesatRequest, CubesatResponse};
 use tokio::sync::{broadcast, mpsc};
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CommsHub {
-    cubesats: Vec<Cubesat>,
-
     broadcast_tx: broadcast::Sender<CubesatRequest>,
     // A broadcast channel that will be shared among the cubesats
     // A mpsc channel to send back either precommit / noncommit back to the ground station
 }
 
 impl CommsHub {
+    // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new() -> CommsHub {
         // TODO: Set appropriate values for the bounds. They're arbitrary values at this point.
         let (broadcast_tx, _) = broadcast::channel(100);
 
-        let mut cubesats = Vec::new();
-        // TODO: Provide constructors with the number of cubesats to have.
         let num_cubesats = 10;
         for _ in 0..num_cubesats {
             let broadcast_tx = broadcast_tx.clone();
@@ -30,10 +27,7 @@ impl CommsHub {
             });
         }
 
-        Self {
-            cubesats,
-            broadcast_tx,
-        }
+        Self { broadcast_tx }
     }
 }
 
@@ -59,7 +53,7 @@ impl BounceSatellite for CommsHub {
 
         let (result_tx, mut result_rx) = mpsc::channel(100);
 
-        let mut cubesat_request = CubesatRequest {
+        let cubesat_request = CubesatRequest {
             msg: request.into_inner().message,
             signatures: Vec::new(),
             public_keys: Vec::new(),
@@ -73,27 +67,18 @@ impl BounceSatellite for CommsHub {
         // If the cubesats don't produce either precommit or non commit within that time frame,
         // it will just return non-commit.
 
-        // loop {
-        //     tokio::select! {
-        //         maybe_response = self.result_rx.recv() => {
-        //             if maybe_response.is_err() {
-        //                 println!("Received error, exiting...");
-        //                 return Err(std::result::Error::);
-        //             }
+        loop {
+            tokio::select! {
+                Some(cubesat_response) = result_rx.recv() => {
+                    let bounce_response = BounceResponse {
+                        aggregate_public_key: cubesat_response.public_key,
+                        aggregate_signature: cubesat_response.signature,
+                    };
 
-        //             let cubesat_response = maybe_response.unwrap();
-
-        //             let bounce_response = BounceResponse {
-        //                 aggregate_public_key: cubesat_response.public_key,
-        //                 aggregate_signature: cubesat_response.signature,
-        //             }
-
-        //             return Ok(Response::new(cubesat_response));
-        //         }
-        //     }
-        // }
-
-        panic!("unimplemented yet");
+                    return Ok(Response::new(bounce_response));
+                }
+            }
+        }
     }
 }
 

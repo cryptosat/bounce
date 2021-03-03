@@ -69,6 +69,14 @@ impl Cubesat {
                         }
                     };
 
+                    match request.result_tx.send(response).await {
+                        Ok(_) => {
+
+                        }
+                        Err(_) => {
+                            println!("Failed to send the response back to the comms hub");
+                        }
+                    }
                     // Send the response back to the comms hub.
                 }
             }
