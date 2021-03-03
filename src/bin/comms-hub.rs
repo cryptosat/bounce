@@ -14,13 +14,13 @@ impl CommsHub {
     // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new() -> CommsHub {
         // TODO: Set appropriate values for the bounds. They're arbitrary values at this point.
-        let (broadcast_tx, _) = broadcast::channel(100);
+        let (broadcast_tx, _) = broadcast::channel(1000);
 
         let num_cubesats = 10;
         for _ in 0..num_cubesats {
             let broadcast_tx = broadcast_tx.clone();
             let broadcast_rx = broadcast_tx.subscribe();
-            let mut c = Cubesat::new(broadcast_rx);
+            let mut c = Cubesat::new(broadcast_tx, broadcast_rx);
 
             tokio::spawn(async move {
                 c.run().await;
@@ -74,6 +74,7 @@ impl BounceSatellite for CommsHub {
                         aggregate_public_key: cubesat_response.public_key,
                         aggregate_signature: cubesat_response.signature,
                     };
+                    println!("returning aggregate signature and public key");
 
                     return Ok(Response::new(bounce_response));
                 }
