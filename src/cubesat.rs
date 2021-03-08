@@ -3,7 +3,7 @@ use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
 use std::time::Duration;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tokio::time;
 
 pub struct Cubesat {
@@ -12,6 +12,11 @@ pub struct Cubesat {
 
     // A channel to receive request from the communication hub
     broadcast_rx: broadcast::Receiver<CubesatRequest>,
+}
+
+#[derive(Debug)]
+pub enum Command {
+    Stop,
 }
 
 pub struct SlotConfig {
@@ -27,15 +32,12 @@ pub enum Phase {
     Third,
 }
 
-pub enum State {
-    Honest,
-}
-
 pub struct CubesatWithSlot {
     // Number of cubesats including itself.
     num_cubesats: usize,
 
     id: usize,
+    slot_id: usize,
 
     // Configuration for slot
     slot_config: SlotConfig,
@@ -49,15 +51,20 @@ pub struct CubesatWithSlot {
     public_key: Vec<u8>,
     private_key: Vec<u8>,
 
-    state: State,
-
     // (id, signature) of precommtis or noncommits received for this slot.
     precommits: Vec<(usize, Vec<u8>)>,
     noncommits: Vec<(usize, Vec<u8>)>,
+
+    rx: mpsc::Receiver<Command>,
 }
 
 impl CubesatWithSlot {
-    pub fn new(num_cubesats: usize, id: usize, slot_config: SlotConfig, state: State) -> Self {
+    pub fn new(
+        num_cubesats: usize,
+        id: usize,
+        slot_config: SlotConfig,
+        rx: mpsc::Receiver<Command>,
+    ) -> Self {
         let mut rng = thread_rng();
 
         // generate public and private key pairs.
@@ -67,15 +74,16 @@ impl CubesatWithSlot {
         Self {
             num_cubesats,
             id,
+            slot_id: 0,
             slot_config,
             phase: Phase::Stop,
             signed: false,
             aggregated: false,
             public_key,
             private_key,
-            state: State::Honest,
             precommits: Vec::new(),
             noncommits: Vec::new(),
+            rx,
         }
     }
 
@@ -91,6 +99,14 @@ impl CubesatWithSlot {
                     self.signed = false;
                     self.aggregated = false;
                     println!("slot timer tick");
+                }
+                Some(cmd) = self.rx.recv() => {
+                    match cmd {
+                        Command::Stop => {
+                            println!("exiting the loop...");
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -199,5 +215,35 @@ impl Cubesat {
                 public_key: self.public_key.clone(),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cubesat_stop() {
+        let (tx, rx) = mpsc::channel(15);
+
+        let mut c = CubesatWithSlot::new(
+            1,
+            0,
+            SlotConfig {
+                duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            rx,
+        );
+
+        tokio::spawn(async move {
+            c.run().await;
+        });
+
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        tx.send(Command::Stop)
+            .await
+            .expect("Failed to send stop command");
     }
 }
