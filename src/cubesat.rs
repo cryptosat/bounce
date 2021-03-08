@@ -2,7 +2,9 @@ use super::{CubesatRequest, CubesatResponse};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
+use std::time::Duration;
 use tokio::sync::broadcast;
+use tokio::time;
 
 pub struct Cubesat {
     private_key: Vec<u8>,
@@ -10,6 +12,89 @@ pub struct Cubesat {
 
     // A channel to receive request from the communication hub
     broadcast_rx: broadcast::Receiver<CubesatRequest>,
+}
+
+pub struct SlotConfig {
+    duration: u64,        // in seconds
+    phase1_duration: u64, // in seconds
+    phase2_duration: u64, // in seconds
+}
+
+pub enum Phase {
+    Stop,
+    First,
+    Second,
+    Third,
+}
+
+pub enum State {
+    Honest,
+}
+
+pub struct CubesatWithSlot {
+    // Number of cubesats including itself.
+    num_cubesats: usize,
+
+    id: usize,
+
+    // Configuration for slot
+    slot_config: SlotConfig,
+    phase: Phase,
+
+    // Whether this cubesat has signed a precommit or non-commit for current slot
+    signed: bool,
+    // Whether this cubesat has aggregated signatures of at least supermajority of num_cubesats
+    aggregated: bool,
+
+    public_key: Vec<u8>,
+    private_key: Vec<u8>,
+
+    state: State,
+
+    // (id, signature) of precommtis or noncommits received for this slot.
+    precommits: Vec<(usize, Vec<u8>)>,
+    noncommits: Vec<(usize, Vec<u8>)>,
+}
+
+impl CubesatWithSlot {
+    pub fn new(num_cubesats: usize, id: usize, slot_config: SlotConfig, state: State) -> Self {
+        let mut rng = thread_rng();
+
+        // generate public and private key pairs.
+        let private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let public_key = Bn256.derive_public_key(&private_key).unwrap();
+
+        Self {
+            num_cubesats,
+            id,
+            slot_config,
+            phase: Phase::Stop,
+            signed: false,
+            aggregated: false,
+            public_key,
+            private_key,
+            state: State::Honest,
+            precommits: Vec::new(),
+            noncommits: Vec::new(),
+        }
+    }
+
+    pub async fn run(&mut self) {
+        let mut slot_timer = time::interval(Duration::from_secs(self.slot_config.duration));
+
+        loop {
+            tokio::select! {
+                _ = slot_timer.tick() => {
+                    self.precommits.clear();
+                    self.noncommits.clear();
+                    self.phase = Phase::First;
+                    self.signed = false;
+                    self.aggregated = false;
+                    println!("slot timer tick");
+                }
+            }
+        }
+    }
 }
 
 impl Cubesat {
