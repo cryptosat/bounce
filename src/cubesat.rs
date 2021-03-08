@@ -4,7 +4,7 @@ use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
-use tokio::time;
+use tokio::time::{interval, interval_at, Instant};
 
 pub struct Cubesat {
     private_key: Vec<u8>,
@@ -14,11 +14,29 @@ pub struct Cubesat {
     broadcast_rx: broadcast::Receiver<CubesatRequest>,
 }
 
-#[derive(Debug)]
-pub enum Command {
-    Stop,
+#[derive(Clone, Debug)]
+pub enum CommitType {
+    Precommit,
+    Noncommit,
 }
 
+#[derive(Clone, Debug)]
+pub struct Commit {
+    typ: CommitType,
+    id: usize,
+    signature: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Command {
+    Stop,
+    // Sign this message sent from ground station
+    Sign(Vec<u8>),
+    // Aggregate either precommit or noncommit
+    Aggregate(Commit),
+}
+
+#[derive(Clone, Debug)]
 pub struct SlotConfig {
     duration: u64,        // in seconds
     phase1_duration: u64, // in seconds
@@ -52,10 +70,13 @@ pub struct CubesatWithSlot {
     private_key: Vec<u8>,
 
     // (id, signature) of precommtis or noncommits received for this slot.
-    precommits: Vec<(usize, Vec<u8>)>,
-    noncommits: Vec<(usize, Vec<u8>)>,
+    precommits: Vec<Commit>,
+    noncommits: Vec<Commit>,
 
-    rx: mpsc::Receiver<Command>,
+    // sender to send to communications hub
+    result_tx: mpsc::Sender<Command>,
+    // receiver to receive commands from the communications hub
+    request_rx: mpsc::Receiver<Command>,
 }
 
 impl CubesatWithSlot {
@@ -63,7 +84,8 @@ impl CubesatWithSlot {
         num_cubesats: usize,
         id: usize,
         slot_config: SlotConfig,
-        rx: mpsc::Receiver<Command>,
+        result_tx: mpsc::Sender<Command>,
+        request_rx: mpsc::Receiver<Command>,
     ) -> Self {
         let mut rng = thread_rng();
 
@@ -83,28 +105,68 @@ impl CubesatWithSlot {
             private_key,
             precommits: Vec::new(),
             noncommits: Vec::new(),
-            rx,
+            result_tx,
+            request_rx,
         }
     }
 
     pub async fn run(&mut self) {
-        let mut slot_timer = time::interval(Duration::from_secs(self.slot_config.duration));
+        let slot_duration = Duration::from_secs(self.slot_config.duration);
+        let mut slot_ticker = interval(slot_duration);
+        let start = Instant::now();
+        let phase2_start = start + Duration::from_secs(self.slot_config.phase1_duration);
+        let phase3_start = phase2_start + Duration::from_secs(self.slot_config.phase2_duration);
+        let mut phase2_ticker = interval_at(phase2_start, slot_duration);
+        let mut phase3_ticker = interval_at(phase3_start, slot_duration);
 
         loop {
             tokio::select! {
-                _ = slot_timer.tick() => {
+                _ = slot_ticker.tick() => {
+                    // Have to sign and send noncommit for (j + 1, i)
+
                     self.precommits.clear();
                     self.noncommits.clear();
                     self.phase = Phase::First;
                     self.signed = false;
                     self.aggregated = false;
                     println!("slot timer tick");
+                    self.slot_id += 1;
+                }
+                _ = phase2_ticker.tick() => {
+                    self.phase = Phase::Second;
+                }
+                _ = phase3_ticker.tick() => {
+                    self.phase = Phase::Third;
                 }
                 Some(cmd) = self.rx.recv() => {
                     match cmd {
                         Command::Stop => {
+                            self.phase = Phase::Stop;
                             println!("exiting the loop...");
                             break;
+                        }
+                        Command::Sign(msg) => {
+                            if self.signed {
+                                // already signed for this slot.
+                                return;
+                            }
+
+                            let signature = Bn256.sign(&self.private_key, &msg).unwrap();
+
+                            // TODO: check errors
+                            self.tx.send(
+                                Command::Aggregate(Commit {typ: CommitType::Precommit, id: self.id, signature})
+                            ).await.unwrap();
+                        }
+                        Command::Aggregate(commit) => {
+                            match commit.typ {
+                                CommitType::Precommit => {
+                                    self.precommits.push(commit);
+                                }
+                                CommitType::Noncommit => {
+                                    self.noncommits.push(commit);
+                                }
+                            }
                         }
                     }
                 }
@@ -224,7 +286,8 @@ mod tests {
 
     #[tokio::test]
     async fn cubesat_stop() {
-        let (tx, rx) = mpsc::channel(15);
+        let (result_tx, _) = mpsc::channel(1);
+        let (request_tx, request_rx) = mpsc::channel(15);
 
         let mut c = CubesatWithSlot::new(
             1,
@@ -234,7 +297,8 @@ mod tests {
                 phase1_duration: 4,
                 phase2_duration: 4,
             },
-            rx,
+            result_tx,
+            request_rx,
         );
 
         tokio::spawn(async move {
@@ -242,7 +306,7 @@ mod tests {
         });
 
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        tx.send(Command::Stop)
+        request_tx.send(Command::Stop)
             .await
             .expect("Failed to send stop command");
     }

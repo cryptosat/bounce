@@ -18,11 +18,3 @@ pub struct CubesatResponse {
     pub signature: Vec<u8>,
     pub public_key: Vec<u8>,
 }
-
-#[derive(Clone, Debug)]
-pub struct SlotConfig {
-    // in milliseconds
-    slot_duration: u64,
-    phase1_duration: u64,
-    phase2_duration: u64,
-}
