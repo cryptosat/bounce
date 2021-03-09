@@ -82,10 +82,21 @@ impl BounceSatellite for CommsHub {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // TODO: parse program config
+    // 1. time to run the experiment, it will shut off after this time.
+    // 2. Bounce config
+    //  - number of cubesats
+    //  - slot duration
+    //  - phase 1 duration
+    //  - phase 2 duration
+    // 3. The IP:PORT to use
+
     let addr = "[::1]:50051".parse()?;
     let comms_hub = CommsHub::new();
 
     // This installs a BounceSatelliteServer service.
+    // Question: could this actually successfully make RPCs over unreliable connections between
+    // ISS and the Earth?
     Server::builder()
         .add_service(BounceSatelliteServer::new(comms_hub))
         .serve(addr)
