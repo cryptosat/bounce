@@ -1,4 +1,4 @@
-use super::{CubesatRequest, CubesatResponse};
+use super::{BounceConfig, CubesatRequest, CubesatResponse};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
@@ -23,7 +23,9 @@ pub enum CommitType {
 #[derive(Clone, Debug)]
 pub struct Commit {
     typ: CommitType,
+    // The id of signer
     id: usize,
+    // signer's public key
     public_key: Vec<u8>,
     signature: Vec<u8>,
 }
@@ -37,13 +39,6 @@ pub enum Command {
     Aggregate(Commit),
 }
 
-#[derive(Clone, Debug)]
-pub struct SlotConfig {
-    duration: u64,        // in seconds
-    phase1_duration: u64, // in seconds
-    phase2_duration: u64, // in seconds
-}
-
 pub enum Phase {
     Stop,
     First,
@@ -52,14 +47,11 @@ pub enum Phase {
 }
 
 pub struct CubesatWithSlot {
-    // Number of cubesats including itself.
-    num_cubesats: usize,
-
     id: usize,
     slot_id: usize,
 
     // Configuration for slot
-    slot_config: SlotConfig,
+    bounce_config: BounceConfig,
     phase: Phase,
 
     // Whether this cubesat has signed a precommit or non-commit for current slot
@@ -82,9 +74,8 @@ pub struct CubesatWithSlot {
 
 impl CubesatWithSlot {
     pub fn new(
-        num_cubesats: usize,
         id: usize,
-        slot_config: SlotConfig,
+        bounce_config: BounceConfig,
         result_tx: mpsc::Sender<Command>,
         request_rx: mpsc::Receiver<Command>,
     ) -> Self {
@@ -95,10 +86,9 @@ impl CubesatWithSlot {
         let public_key = Bn256.derive_public_key(&private_key).unwrap();
 
         Self {
-            num_cubesats,
             id,
             slot_id: 0,
-            slot_config,
+            bounce_config,
             phase: Phase::Stop,
             signed: false,
             aggregated: false,
@@ -112,11 +102,11 @@ impl CubesatWithSlot {
     }
 
     pub async fn run(&mut self) {
-        let slot_duration = Duration::from_secs(self.slot_config.duration);
+        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration);
         let mut slot_ticker = interval(slot_duration);
         let start = Instant::now();
-        let phase2_start = start + Duration::from_secs(self.slot_config.phase1_duration);
-        let phase3_start = phase2_start + Duration::from_secs(self.slot_config.phase2_duration);
+        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration);
+        let phase3_start = phase2_start + Duration::from_secs(self.bounce_config.phase2_duration);
         let mut phase2_ticker = interval_at(phase2_start, slot_duration);
         let mut phase3_ticker = interval_at(phase3_start, slot_duration);
 
@@ -165,7 +155,7 @@ impl CubesatWithSlot {
                                 CommitType::Precommit => {
                                     self.precommits.push(commit);
 
-                                    if self.precommits.len() == self.num_cubesats {
+                                    if self.precommits.len() == self.bounce_config.num_cubesats {
                                         let sig_refs :Vec<&[u8]> = self.precommits.iter().map(|p| p.signature.as_slice()).collect();
                                         let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
                                         let public_key_refs: Vec<&[u8]> = self.precommits.iter().map(|p| p.public_key.as_slice()).collect();
@@ -306,10 +296,10 @@ mod tests {
         let (request_tx, request_rx) = mpsc::channel(15);
 
         let mut c = CubesatWithSlot::new(
-            1,
             0,
-            SlotConfig {
-                duration: 10,
+            BounceConfig {
+                num_cubesats: 1,
+                slot_duration: 10,
                 phase1_duration: 4,
                 phase2_duration: 4,
             },
@@ -334,10 +324,11 @@ mod tests {
         let (request_tx, request_rx) = mpsc::channel(15);
 
         let mut c = CubesatWithSlot::new(
-            1,
             0,
-            SlotConfig {
-                duration: 10,
+            BounceConfig {
+                num_cubesats: 1,
+
+                slot_duration: 10,
                 phase1_duration: 4,
                 phase2_duration: 4,
             },
