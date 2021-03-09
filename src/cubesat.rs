@@ -93,6 +93,58 @@ impl Cubesat {
         }
     }
 
+    async fn sign(&mut self, msg: &[u8]) {
+        if self.signed {
+            // already signed for this slot.
+            return;
+        }
+
+        let signature = Bn256.sign(&self.private_key, &msg).unwrap();
+
+        // TODO: check errors
+        self.result_tx
+            .send(Command::Aggregate(Commit {
+                typ: CommitType::Precommit,
+                id: self.id,
+                public_key: self.public_key.clone(),
+                signature,
+            }))
+            .await
+            .unwrap();
+    }
+
+    async fn aggregate(&mut self, commit: Commit) {
+        match commit.typ {
+            CommitType::Precommit => {
+                self.precommits.push(commit);
+
+                if self.precommits.len() == self.bounce_config.num_cubesats {
+                    let sig_refs: Vec<&[u8]> = self
+                        .precommits
+                        .iter()
+                        .map(|p| p.signature.as_slice())
+                        .collect();
+                    let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+                    let public_key_refs: Vec<&[u8]> = self
+                        .precommits
+                        .iter()
+                        .map(|p| p.public_key.as_slice())
+                        .collect();
+                    let aggregate_public_key =
+                        Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+                    let cubesat_response = CubesatResponse {
+                        signature: aggregate_signature,
+                        public_key: aggregate_public_key,
+                    };
+                }
+            }
+            CommitType::Noncommit => {
+                self.noncommits.push(commit);
+            }
+        }
+    }
+
     pub async fn run(&mut self) {
         let slot_duration = Duration::from_secs(self.bounce_config.slot_duration);
         let mut slot_ticker = interval(slot_duration);
@@ -129,42 +181,10 @@ impl Cubesat {
                             break;
                         }
                         Command::Sign(msg) => {
-                            if self.signed {
-                                // already signed for this slot.
-                                return;
-                            }
-
-                            let signature = Bn256.sign(&self.private_key, &msg).unwrap();
-
-                            // TODO: check errors
-                            self.result_tx.send(
-                                Command::Aggregate(Commit {typ: CommitType::Precommit, id: self.id,
-                                    public_key: self.public_key.clone(), signature})
-                            ).await.unwrap();
+                            self.sign(&msg).await;
                         }
                         Command::Aggregate(commit) => {
-                            match commit.typ {
-                                CommitType::Precommit => {
-                                    self.precommits.push(commit);
-
-                                    if self.precommits.len() == self.bounce_config.num_cubesats {
-                                        let sig_refs :Vec<&[u8]> = self.precommits.iter().map(|p| p.signature.as_slice()).collect();
-                                        let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
-                                        let public_key_refs: Vec<&[u8]> = self.precommits.iter().map(|p| p.public_key.as_slice()).collect();
-                                        let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
-
-                                        let cubesat_response = CubesatResponse {
-                                            signature: aggregate_signature,
-                                            public_key: aggregate_public_key,
-                                        };
-
-
-                                    }
-                                }
-                                CommitType::Noncommit => {
-                                    self.noncommits.push(commit);
-                                }
-                            }
+                            self.aggregate(commit).await;
                         }
                     }
                 }
