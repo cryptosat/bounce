@@ -24,6 +24,7 @@ pub enum CommitType {
 pub struct Commit {
     typ: CommitType,
     id: usize,
+    public_key: Vec<u8>,
     signature: Vec<u8>,
 }
 
@@ -155,7 +156,8 @@ impl CubesatWithSlot {
 
                             // TODO: check errors
                             self.result_tx.send(
-                                Command::Aggregate(Commit {typ: CommitType::Precommit, id: self.id, signature})
+                                Command::Aggregate(Commit {typ: CommitType::Precommit, id: self.id,
+                                    public_key: self.public_key.clone(), signature})
                             ).await.unwrap();
                         }
                         Command::Aggregate(commit) => {
@@ -163,6 +165,19 @@ impl CubesatWithSlot {
                                 CommitType::Precommit => {
                                     self.precommits.push(commit);
 
+                                    if self.precommits.len() == self.num_cubesats {
+                                        let sig_refs :Vec<&[u8]> = self.precommits.iter().map(|p| p.signature.as_slice()).collect();
+                                        let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+                                        let public_key_refs: Vec<&[u8]> = self.precommits.iter().map(|p| p.public_key.as_slice()).collect();
+                                        let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+                                        let cubesat_response = CubesatResponse {
+                                            signature: aggregate_signature,
+                                            public_key: aggregate_public_key,
+                                        };
+
+
+                                    }
                                 }
                                 CommitType::Noncommit => {
                                     self.noncommits.push(commit);
