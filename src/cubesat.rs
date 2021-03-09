@@ -312,4 +312,38 @@ mod tests {
             .await
             .expect("Failed to send stop command");
     }
+
+    #[tokio::test]
+    async fn cubesat_sign() {
+        let (result_tx, mut result_rx) = mpsc::channel(1);
+        let (request_tx, request_rx) = mpsc::channel(15);
+
+        let mut c = CubesatWithSlot::new(
+            1,
+            0,
+            SlotConfig {
+                duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+        );
+
+        tokio::spawn(async move {
+            c.run().await;
+        });
+
+        tokio::spawn(async move {
+            request_tx
+                .send(Command::Sign("hello".as_bytes().to_vec()))
+                .await
+                .expect("failed to send sign command");
+        });
+
+        let result_opt = result_rx.recv().await;
+        assert!(result_opt.is_some());
+        let cmd = result_opt.unwrap();
+        assert!(matches!(cmd, Command::Aggregate { .. }));
+    }
 }
