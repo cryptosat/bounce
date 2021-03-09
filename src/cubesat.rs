@@ -138,7 +138,7 @@ impl CubesatWithSlot {
                 _ = phase3_ticker.tick() => {
                     self.phase = Phase::Third;
                 }
-                Some(cmd) = self.rx.recv() => {
+                Some(cmd) = self.request_rx.recv() => {
                     match cmd {
                         Command::Stop => {
                             self.phase = Phase::Stop;
@@ -154,7 +154,7 @@ impl CubesatWithSlot {
                             let signature = Bn256.sign(&self.private_key, &msg).unwrap();
 
                             // TODO: check errors
-                            self.tx.send(
+                            self.result_tx.send(
                                 Command::Aggregate(Commit {typ: CommitType::Precommit, id: self.id, signature})
                             ).await.unwrap();
                         }
@@ -162,6 +162,7 @@ impl CubesatWithSlot {
                             match commit.typ {
                                 CommitType::Precommit => {
                                     self.precommits.push(commit);
+
                                 }
                                 CommitType::Noncommit => {
                                     self.noncommits.push(commit);
@@ -306,7 +307,8 @@ mod tests {
         });
 
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        request_tx.send(Command::Stop)
+        request_tx
+            .send(Command::Stop)
             .await
             .expect("Failed to send stop command");
     }
