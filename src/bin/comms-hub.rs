@@ -1,13 +1,11 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-// use bounce::CubesatRequest;
 use bounce::{BounceRequest, BounceResponse};
 // use bounce::Cubesat;
 use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CommsHub {
-    // broadcast_tx: broadcast::Sender<CubesatRequest>,
-// A broadcast channel that will be shared among the cubesats
+    // A broadcast channel that will be shared among the cubesats
 // A mpsc channel to send back either precommit / noncommit back to the ground station
 }
 
@@ -51,14 +49,7 @@ impl BounceSatellite for CommsHub {
     ) -> Result<Response<BounceResponse>, Status> {
         println!("Got a request: {:?}", request);
 
-        let (result_tx, mut result_rx) = mpsc::channel(100);
-
-        // let cubesat_request = CubesatRequest {
-        //     msg: request.into_inner().message,
-        //     signatures: Vec::new(),
-        //     public_keys: Vec::new(),
-        //     result_tx: result_tx.clone(),
-        // };
+        let (_result_tx, mut result_rx) = mpsc::channel(100);
 
         // let mut signatures = Vec::new();
         // let mut public_keys = Vec::new();

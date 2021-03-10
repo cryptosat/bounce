@@ -1,23 +1,7 @@
 pub use cubesat::*;
 pub mod cubesat;
 
-use tokio::sync::mpsc;
-
 tonic::include_proto!("bounce"); // The string specified here must match the proto package name
-
-#[derive(Clone, Debug)]
-pub struct CubesatRequest {
-    pub msg: Vec<u8>,
-    pub signatures: Vec<Vec<u8>>,
-    pub public_keys: Vec<Vec<u8>>,
-    pub result_tx: mpsc::Sender<CubesatResponse>,
-}
-
-#[derive(Clone, Debug)]
-pub struct CubesatResponse {
-    pub signature: Vec<u8>,
-    pub public_key: Vec<u8>,
-}
 
 #[derive(Clone, Debug)]
 pub struct BounceConfig {
@@ -25,4 +9,21 @@ pub struct BounceConfig {
     slot_duration: u64,   // in seconds
     phase1_duration: u64, // in seconds
     phase2_duration: u64, // in seconds
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CommitType {
+    Precommit,
+    Noncommit,
+}
+
+#[derive(Clone, Debug)]
+pub struct Commit {
+    typ: CommitType,
+    // The id of signer
+    id: usize,
+    // signer's public key
+    msg: Vec<u8>,
+    public_key: Vec<u8>,
+    signature: Vec<u8>,
 }

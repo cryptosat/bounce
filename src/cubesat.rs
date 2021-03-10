@@ -1,26 +1,10 @@
-use super::{BounceConfig, CubesatRequest, CubesatResponse};
+use super::{BounceConfig, Commit, CommitType};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
 use std::time::Duration;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tokio::time::{interval, interval_at, Instant};
-
-#[derive(Clone, Debug)]
-pub enum CommitType {
-    Precommit,
-    Noncommit,
-}
-
-#[derive(Clone, Debug)]
-pub struct Commit {
-    typ: CommitType,
-    // The id of signer
-    id: usize,
-    // signer's public key
-    public_key: Vec<u8>,
-    signature: Vec<u8>,
-}
 
 #[derive(Clone, Debug)]
 pub enum Command {
@@ -41,7 +25,10 @@ pub enum Phase {
 
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
-    id: usize,
+    // Index of current slot
+    idx: usize,
+    // The index of last committed slot.
+    j: usize,
     phase: Phase,
     // Whether this cubesat has signed a precommit or non-commit for current slot
     signed: bool,
@@ -55,7 +42,8 @@ pub struct SlotInfo {
 impl SlotInfo {
     fn new() -> Self {
         Self {
-            id: 0,
+            idx: 0,
+            j: 0,
             phase: Phase::Stop,
             signed: false,
             aggregated: false,
@@ -65,7 +53,10 @@ impl SlotInfo {
     }
 
     fn next(&mut self) {
-        self.id += 1;
+        if self.signed {
+            self.j = self.idx;
+        }
+        self.idx += 1;
         self.phase = Phase::First;
         self.signed = false;
         self.aggregated = false;
@@ -115,6 +106,38 @@ impl Cubesat {
         }
     }
 
+    async fn process(&mut self, commit: Commit) {
+        match self.slot_info.phase {
+            Phase::First => {
+                if commit.typ == CommitType::Noncommit {
+                    // Ignore noncommit
+                    return;
+                }
+                // Sign
+                // Aggregate if > supermajority
+                // Broadcast
+            }
+            Phase::Second => {
+                // Sign
+                // Aggregate if > supermajority
+                // Broadcast
+            }
+            Phase::Third => {
+                if commit.typ == CommitType::Precommit {
+                    // ignore precommit
+                    return;
+                }
+                // Sign
+                // Aggregate noncommits if > supermajority
+                // Broadcast
+            }
+            Phase::Stop => {
+                // Does nothing.
+                return;
+            }
+        }
+    }
+
     async fn sign(&mut self, msg: &[u8]) {
         if self.slot_info.signed {
             // already signed for this slot.
@@ -128,6 +151,7 @@ impl Cubesat {
             .send(Command::Aggregate(Commit {
                 typ: CommitType::Precommit,
                 id: self.id,
+                msg: msg.to_vec(),
                 public_key: self.public_key.clone(),
                 signature,
             }))
@@ -147,20 +171,15 @@ impl Cubesat {
                         .iter()
                         .map(|p| p.signature.as_slice())
                         .collect();
-                    let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+                    let _aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
                     let public_key_refs: Vec<&[u8]> = self
                         .slot_info
                         .precommits
                         .iter()
                         .map(|p| p.public_key.as_slice())
                         .collect();
-                    let aggregate_public_key =
+                    let _aggregate_public_key =
                         Bn256.aggregate_public_keys(&public_key_refs).unwrap();
-
-                    let cubesat_response = CubesatResponse {
-                        signature: aggregate_signature,
-                        public_key: aggregate_public_key,
-                    };
                 }
             }
             CommitType::Noncommit => {
@@ -181,7 +200,6 @@ impl Cubesat {
         loop {
             tokio::select! {
                 _ = slot_ticker.tick() => {
-                    // Have to sign and send noncommit for (j + 1, i)
 
                     self.slot_info.next();
                     println!("slot timer tick");
@@ -190,7 +208,10 @@ impl Cubesat {
                     self.slot_info.phase = Phase::Second;
                 }
                 _ = phase3_ticker.tick() => {
+                    // Have to sign and send noncommit for (j + 1, i)
+
                     self.slot_info.phase = Phase::Third;
+
                 }
                 Some(cmd) = self.request_rx.recv() => {
                     match cmd {
@@ -253,7 +274,6 @@ mod tests {
             0,
             BounceConfig {
                 num_cubesats: 1,
-
                 slot_duration: 10,
                 phase1_duration: 4,
                 phase2_duration: 4,
