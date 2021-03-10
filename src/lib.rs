@@ -26,6 +26,7 @@ pub struct Commit {
     msg: Vec<u8>,
     public_key: Vec<u8>,
     signature: Vec<u8>,
+    aggregated: bool,
 }
 
 pub fn supermajority(n: usize) -> usize {

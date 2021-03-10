@@ -1,4 +1,4 @@
-use super::{BounceConfig, Commit, CommitType};
+use super::{supermajority, BounceConfig, Commit, CommitType};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
@@ -9,10 +9,7 @@ use tokio::time::{interval, interval_at, Instant};
 #[derive(Clone, Debug)]
 pub enum Command {
     Stop,
-    // Sign this message sent from ground station
-    Sign(Vec<u8>),
-    // Aggregate either precommit or noncommit
-    Aggregate(Commit),
+    Sign(Commit),
 }
 
 #[derive(Clone, Debug)]
@@ -76,7 +73,7 @@ pub struct Cubesat {
     private_key: Vec<u8>,
 
     // sender to send to communications hub
-    result_tx: mpsc::Sender<Command>,
+    result_tx: mpsc::Sender<Commit>,
     // receiver to receive commands from the communications hub
     request_rx: mpsc::Receiver<Command>,
 }
@@ -85,7 +82,7 @@ impl Cubesat {
     pub fn new(
         id: usize,
         bounce_config: BounceConfig,
-        result_tx: mpsc::Sender<Command>,
+        result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Command>,
     ) -> Self {
         let mut rng = thread_rng();
@@ -106,6 +103,16 @@ impl Cubesat {
         }
     }
 
+    fn aggregate(commits: &[Commit]) -> (Vec<u8>, Vec<u8>) {
+        let sig_refs: Vec<&[u8]> = commits.iter().map(|c| c.signature.as_slice()).collect();
+        let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+
+        let public_key_refs: Vec<&[u8]> = commits.iter().map(|c| c.public_key.as_slice()).collect();
+        let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+        (aggregate_signature, aggregate_public_key)
+    }
+
     async fn process(&mut self, commit: Commit) {
         match self.slot_info.phase {
             Phase::First => {
@@ -113,9 +120,27 @@ impl Cubesat {
                     // Ignore noncommit
                     return;
                 }
+
                 // Sign
-                // Aggregate if > supermajority
+                let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+                let mut precommit = commit.clone();
+                precommit.signature = signature;
+                precommit.public_key = self.public_key.to_vec();
+                self.slot_info.precommits.push(precommit.clone());
+
+                // Aggregate
+                if self.slot_info.precommits.len() >= supermajority(self.bounce_config.num_cubesats)
+                {
+                    let (aggregate_signature, aggregate_public_key) =
+                        Cubesat::aggregate(&self.slot_info.precommits);
+
+                    precommit.signature = aggregate_signature;
+                    precommit.public_key = aggregate_public_key;
+                    precommit.aggregated = true;
+                }
+
                 // Broadcast
+                self.result_tx.send(precommit).await.unwrap();
             }
             Phase::Second => {
                 // Sign
@@ -138,55 +163,55 @@ impl Cubesat {
         }
     }
 
-    async fn sign(&mut self, msg: &[u8]) {
-        if self.slot_info.signed {
-            // already signed for this slot.
-            return;
-        }
+    // async fn sign(&mut self, msg: &[u8]) {
+    //     if self.slot_info.signed {
+    //         // already signed for this slot.
+    //         return;
+    //     }
 
-        let signature = Bn256.sign(&self.private_key, &msg).unwrap();
+    //     let signature = Bn256.sign(&self.private_key, &msg).unwrap();
 
-        // TODO: check errors
-        self.result_tx
-            .send(Command::Aggregate(Commit {
-                typ: CommitType::Precommit,
-                id: self.id,
-                msg: msg.to_vec(),
-                public_key: self.public_key.clone(),
-                signature,
-            }))
-            .await
-            .unwrap();
-    }
+    //     // TODO: check errors
+    //     self.result_tx
+    //         .send(Command::Aggregate(Commit {
+    //             typ: CommitType::Precommit,
+    //             id: self.id,
+    //             msg: msg.to_vec(),
+    //             public_key: self.public_key.clone(),
+    //             signature,
+    //         }))
+    //         .await
+    //         .unwrap();
+    // }
 
-    async fn aggregate(&mut self, commit: Commit) {
-        match commit.typ {
-            CommitType::Precommit => {
-                self.slot_info.precommits.push(commit);
+    // async fn aggregate(&mut self, commit: Commit) {
+    //     match commit.typ {
+    //         CommitType::Precommit => {
+    //             self.slot_info.precommits.push(commit);
 
-                if self.slot_info.precommits.len() == self.bounce_config.num_cubesats {
-                    let sig_refs: Vec<&[u8]> = self
-                        .slot_info
-                        .precommits
-                        .iter()
-                        .map(|p| p.signature.as_slice())
-                        .collect();
-                    let _aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
-                    let public_key_refs: Vec<&[u8]> = self
-                        .slot_info
-                        .precommits
-                        .iter()
-                        .map(|p| p.public_key.as_slice())
-                        .collect();
-                    let _aggregate_public_key =
-                        Bn256.aggregate_public_keys(&public_key_refs).unwrap();
-                }
-            }
-            CommitType::Noncommit => {
-                self.slot_info.noncommits.push(commit);
-            }
-        }
-    }
+    //             if self.slot_info.precommits.len() == self.bounce_config.num_cubesats {
+    //                 let sig_refs: Vec<&[u8]> = self
+    //                     .slot_info
+    //                     .precommits
+    //                     .iter()
+    //                     .map(|p| p.signature.as_slice())
+    //                     .collect();
+    //                 let _aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
+    //                 let public_key_refs: Vec<&[u8]> = self
+    //                     .slot_info
+    //                     .precommits
+    //                     .iter()
+    //                     .map(|p| p.public_key.as_slice())
+    //                     .collect();
+    //                 let _aggregate_public_key =
+    //                     Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+    //             }
+    //         }
+    //         CommitType::Noncommit => {
+    //             self.slot_info.noncommits.push(commit);
+    //         }
+    //     }
+    // }
 
     pub async fn run(&mut self) {
         let slot_duration = Duration::from_secs(self.bounce_config.slot_duration);
@@ -220,11 +245,8 @@ impl Cubesat {
                             println!("exiting the loop...");
                             break;
                         }
-                        Command::Sign(msg) => {
-                            self.sign(&msg).await;
-                        }
-                        Command::Aggregate(commit) => {
-                            self.aggregate(commit).await;
+                        Command::Sign(commit) => {
+                            self.process(commit).await;
                         }
                     }
                 }
@@ -267,35 +289,35 @@ mod tests {
 
     #[tokio::test]
     async fn cubesat_sign() {
-        let (result_tx, mut result_rx) = mpsc::channel(1);
-        let (request_tx, request_rx) = mpsc::channel(15);
+        // let (result_tx, mut result_rx) = mpsc::channel(1);
+        // let (request_tx, request_rx) = mpsc::channel(15);
 
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-        );
+        // let mut c = Cubesat::new(
+        //     0,
+        //     BounceConfig {
+        //         num_cubesats: 1,
+        //         slot_duration: 10,
+        //         phase1_duration: 4,
+        //         phase2_duration: 4,
+        //     },
+        //     result_tx,
+        //     request_rx,
+        // );
 
-        tokio::spawn(async move {
-            c.run().await;
-        });
+        // tokio::spawn(async move {
+        //     c.run().await;
+        // });
 
-        tokio::spawn(async move {
-            request_tx
-                .send(Command::Sign("hello".as_bytes().to_vec()))
-                .await
-                .expect("failed to send sign command");
-        });
+        // tokio::spawn(async move {
+        //     request_tx
+        //         .send(Command::Sign("hello".as_bytes().to_vec()))
+        //         .await
+        //         .expect("failed to send sign command");
+        // });
 
-        let result_opt = result_rx.recv().await;
-        assert!(result_opt.is_some());
-        let cmd = result_opt.unwrap();
-        assert!(matches!(cmd, Command::Aggregate { .. }));
+        // let result_opt = result_rx.recv().await;
+        // assert!(result_opt.is_some());
+        // let cmd = result_opt.unwrap();
+        // assert!(matches!(cmd, Command::Aggregate { .. }));
     }
 }
