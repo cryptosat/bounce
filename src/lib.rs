@@ -27,3 +27,18 @@ pub struct Commit {
     public_key: Vec<u8>,
     signature: Vec<u8>,
 }
+
+pub fn supermajority(n: usize) -> usize {
+    (n as f64 / 3.0 * 2.0).ceil() as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn supermajority_test() {
+        assert_eq!(supermajority(10), 7);
+        assert_eq!(supermajority(25), 17);
+    }
+}
