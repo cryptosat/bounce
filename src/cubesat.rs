@@ -31,6 +31,7 @@ pub enum Command {
     Aggregate(Commit),
 }
 
+#[derive(Clone, Debug)]
 pub enum Phase {
     Stop,
     First,
@@ -38,25 +39,50 @@ pub enum Phase {
     Third,
 }
 
-pub struct Cubesat {
+#[derive(Clone, Debug)]
+pub struct SlotInfo {
     id: usize,
-    slot_id: usize,
-
-    // Configuration for slot
-    bounce_config: BounceConfig,
     phase: Phase,
-
     // Whether this cubesat has signed a precommit or non-commit for current slot
     signed: bool,
     // Whether this cubesat has aggregated signatures of at least supermajority of num_cubesats
     aggregated: bool,
-
-    public_key: Vec<u8>,
-    private_key: Vec<u8>,
-
     // (id, signature) of precommtis or noncommits received for this slot.
     precommits: Vec<Commit>,
     noncommits: Vec<Commit>,
+}
+
+impl SlotInfo {
+    fn new() -> Self {
+        Self {
+            id: 0,
+            phase: Phase::Stop,
+            signed: false,
+            aggregated: false,
+            precommits: Vec::new(),
+            noncommits: Vec::new(),
+        }
+    }
+
+    fn next(&mut self) {
+        self.id += 1;
+        self.phase = Phase::First;
+        self.signed = false;
+        self.aggregated = false;
+        self.precommits.clear();
+        self.noncommits.clear();
+    }
+}
+
+pub struct Cubesat {
+    id: usize,
+
+    // Configuration for slot
+    bounce_config: BounceConfig,
+    slot_info: SlotInfo,
+
+    public_key: Vec<u8>,
+    private_key: Vec<u8>,
 
     // sender to send to communications hub
     result_tx: mpsc::Sender<Command>,
@@ -76,25 +102,21 @@ impl Cubesat {
         // generate public and private key pairs.
         let private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
         let public_key = Bn256.derive_public_key(&private_key).unwrap();
+        let slot_info = SlotInfo::new();
 
         Cubesat {
             id,
-            slot_id: 0,
             bounce_config,
-            phase: Phase::Stop,
-            signed: false,
-            aggregated: false,
+            slot_info,
             public_key,
             private_key,
-            precommits: Vec::new(),
-            noncommits: Vec::new(),
             result_tx,
             request_rx,
         }
     }
 
     async fn sign(&mut self, msg: &[u8]) {
-        if self.signed {
+        if self.slot_info.signed {
             // already signed for this slot.
             return;
         }
@@ -116,16 +138,18 @@ impl Cubesat {
     async fn aggregate(&mut self, commit: Commit) {
         match commit.typ {
             CommitType::Precommit => {
-                self.precommits.push(commit);
+                self.slot_info.precommits.push(commit);
 
-                if self.precommits.len() == self.bounce_config.num_cubesats {
+                if self.slot_info.precommits.len() == self.bounce_config.num_cubesats {
                     let sig_refs: Vec<&[u8]> = self
+                        .slot_info
                         .precommits
                         .iter()
                         .map(|p| p.signature.as_slice())
                         .collect();
                     let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
                     let public_key_refs: Vec<&[u8]> = self
+                        .slot_info
                         .precommits
                         .iter()
                         .map(|p| p.public_key.as_slice())
@@ -140,7 +164,7 @@ impl Cubesat {
                 }
             }
             CommitType::Noncommit => {
-                self.noncommits.push(commit);
+                self.slot_info.noncommits.push(commit);
             }
         }
     }
@@ -159,24 +183,19 @@ impl Cubesat {
                 _ = slot_ticker.tick() => {
                     // Have to sign and send noncommit for (j + 1, i)
 
-                    self.precommits.clear();
-                    self.noncommits.clear();
-                    self.phase = Phase::First;
-                    self.signed = false;
-                    self.aggregated = false;
+                    self.slot_info.next();
                     println!("slot timer tick");
-                    self.slot_id += 1;
                 }
                 _ = phase2_ticker.tick() => {
-                    self.phase = Phase::Second;
+                    self.slot_info.phase = Phase::Second;
                 }
                 _ = phase3_ticker.tick() => {
-                    self.phase = Phase::Third;
+                    self.slot_info.phase = Phase::Third;
                 }
                 Some(cmd) = self.request_rx.recv() => {
                     match cmd {
                         Command::Stop => {
-                            self.phase = Phase::Stop;
+                            self.slot_info.phase = Phase::Stop;
                             println!("exiting the loop...");
                             break;
                         }
