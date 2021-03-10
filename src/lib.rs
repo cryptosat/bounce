@@ -20,12 +20,13 @@ pub enum CommitType {
 #[derive(Clone, Debug)]
 pub struct Commit {
     typ: CommitType,
-    // The id of signer
-    id: usize,
+    // The index
+    idx: usize,
     // signer's public key
     msg: Vec<u8>,
     public_key: Vec<u8>,
     signature: Vec<u8>,
+    // Whether this is aggregated signature or not
     aggregated: bool,
 }
 
