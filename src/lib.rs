@@ -5,10 +5,10 @@ tonic::include_proto!("bounce"); // The string specified here must match the pro
 
 #[derive(Clone, Debug)]
 pub struct BounceConfig {
-    num_cubesats: usize,
-    slot_duration: u64,   // in seconds
-    phase1_duration: u64, // in seconds
-    phase2_duration: u64, // in seconds
+    pub num_cubesats: usize,
+    pub slot_duration: u64,   // in seconds
+    pub phase1_duration: u64, // in seconds
+    pub phase2_duration: u64, // in seconds
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,5 +1,5 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceRequest, BounceResponse};
+use bounce::{BounceConfig, BounceRequest, BounceResponse};
 // use bounce::Cubesat;
 use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
@@ -11,7 +11,7 @@ pub struct CommsHub {
 
 impl CommsHub {
     // TODO: Define a constructor to parameterize the number of cubesats
-    pub fn new() -> CommsHub {
+    pub fn new(bounce_config: BounceConfig) -> CommsHub {
         // // TODO: Set appropriate values for the bounds. They're arbitrary values at this point.
         // let (broadcast_tx, _) = broadcast::channel(1000);
 
@@ -83,7 +83,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. The IP:PORT to use
 
     let addr = "[::1]:50051".parse()?;
-    let comms_hub = CommsHub::new();
+
+    let bounce_config = BounceConfig {
+        num_cubesats: 10,
+        slot_duration: 10,
+        phase1_duration: 4,
+        phase2_duration: 4,
+    };
+
+    let comms_hub = CommsHub::new(bounce_config);
 
     // This installs a BounceSatelliteServer service.
     // Question: could this actually successfully make RPCs over unreliable connections between
