@@ -1,31 +1,45 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceConfig, BounceRequest, BounceResponse};
+use bounce::{BounceConfig, BounceRequest, BounceResponse, Commit, Cubesat};
 // use bounce::Cubesat;
 use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
 
+pub struct CubesatInfo {
+    handle: tokio::task::JoinHandle<()>,
+    request_tx: mpsc::Sender<Commit>,
+}
+
 pub struct CommsHub {
-    // A broadcast channel that will be shared among the cubesats
-// A mpsc channel to send back either precommit / noncommit back to the ground station
+    // A channel to receive responses from Cubesats
+    result_rx: mpsc::Receiver<Commit>,
+
+    cubesat_infos: Vec<CubesatInfo>,
 }
 
 impl CommsHub {
     // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new(bounce_config: BounceConfig) -> CommsHub {
-        // // TODO: Set appropriate values for the bounds. They're arbitrary values at this point.
-        // let (broadcast_tx, _) = broadcast::channel(1000);
+        let (result_tx, result_rx) = mpsc::channel(15);
 
-        // let num_cubesats = 10;
-        // for _ in 0..num_cubesats {
-        //     let broadcast_rx = broadcast_tx.subscribe();
-        //     let mut c = Cubesat::new(broadcast_rx);
+        let mut cubesat_infos = Vec::new();
 
-        //     tokio::spawn(async move {
-        //         c.run().await;
-        //     });
-        // }
+        for idx in 0..bounce_config.num_cubesats {
+            let (request_tx, request_rx) = mpsc::channel(15);
 
-        Self { /*broadcast_tx*/ }
+            let result_tx = result_tx.clone();
+            let bounce_config = bounce_config.clone();
+            let handle = tokio::spawn(async move {
+                let mut cubesat = Cubesat::new(idx, bounce_config, result_tx, request_rx);
+                cubesat.run().await;
+            });
+
+            cubesat_infos.push(CubesatInfo { handle, request_tx });
+        }
+
+        Self {
+            result_rx,
+            cubesat_infos,
+        }
     }
 }
 

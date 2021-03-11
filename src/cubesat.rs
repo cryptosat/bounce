@@ -75,7 +75,7 @@ pub struct Cubesat {
     // sender to send to communications hub
     result_tx: mpsc::Sender<Commit>,
     // receiver to receive commands from the communications hub
-    request_rx: mpsc::Receiver<Command>,
+    request_rx: mpsc::Receiver<Commit>,
 }
 
 impl Cubesat {
@@ -83,7 +83,7 @@ impl Cubesat {
         id: usize,
         bounce_config: BounceConfig,
         result_tx: mpsc::Sender<Commit>,
-        request_rx: mpsc::Receiver<Command>,
+        request_rx: mpsc::Receiver<Commit>,
     ) -> Self {
         let mut rng = thread_rng();
 
@@ -192,17 +192,8 @@ impl Cubesat {
                     self.slot_info.phase = Phase::Third;
 
                 }
-                Some(cmd) = self.request_rx.recv() => {
-                    match cmd {
-                        Command::Stop => {
-                            self.slot_info.phase = Phase::Stop;
-                            println!("exiting the loop...");
-                            break;
-                        }
-                        Command::Sign(commit) => {
-                            self.process(commit).await;
-                        }
-                    }
+                Some(commit) = self.request_rx.recv() => {
+                    self.process(commit).await;
                 }
             }
         }
@@ -213,33 +204,33 @@ impl Cubesat {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn cubesat_stop() {
-        let (result_tx, _) = mpsc::channel(1);
-        let (request_tx, request_rx) = mpsc::channel(15);
+    // #[tokio::test]
+    // async fn cubesat_stop() {
+    //     let (result_tx, _) = mpsc::channel(1);
+    //     let (request_tx, request_rx) = mpsc::channel(15);
 
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-        );
+    //     let mut c = Cubesat::new(
+    //         0,
+    //         BounceConfig {
+    //             num_cubesats: 1,
+    //             slot_duration: 10,
+    //             phase1_duration: 4,
+    //             phase2_duration: 4,
+    //         },
+    //         result_tx,
+    //         request_rx,
+    //     );
 
-        tokio::spawn(async move {
-            c.run().await;
-        });
+    //     tokio::spawn(async move {
+    //         c.run().await;
+    //     });
 
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        request_tx
-            .send(Command::Stop)
-            .await
-            .expect("Failed to send stop command");
-    }
+    //     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    //     request_tx
+    //         .send(Command::Stop)
+    //         .await
+    //         .expect("Failed to send stop command");
+    // }
 
     #[tokio::test]
     async fn cubesat_sign_aggregate() {
@@ -282,7 +273,7 @@ mod tests {
 
         tokio::spawn(async move {
             request_tx
-                .send(Command::Sign(precommit))
+                .send(precommit)
                 .await
                 .expect("failed to send sign command");
         });
