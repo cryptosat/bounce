@@ -1,5 +1,5 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceConfig, Commit, Cubesat};
+use bounce::{BounceConfig, Command, Commit, Cubesat};
 // use bounce::Cubesat;
 use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
@@ -7,6 +7,7 @@ use tonic::{transport::Server, Request, Response, Status};
 pub struct CubesatInfo {
     handle: tokio::task::JoinHandle<()>,
     request_tx: mpsc::Sender<Commit>,
+    command_tx: mpsc::Sender<Command>,
 }
 
 pub struct CommsHub {
@@ -25,15 +26,26 @@ impl CommsHub {
 
         for idx in 0..bounce_config.num_cubesats {
             let (request_tx, request_rx) = mpsc::channel(15);
+            let (command_tx, command_rx) = mpsc::channel(10);
 
             let result_tx = result_tx.clone();
             let bounce_config = bounce_config.clone();
             let handle = tokio::spawn(async move {
-                let mut cubesat = Cubesat::new(idx as usize, bounce_config, result_tx, request_rx);
+                let mut cubesat = Cubesat::new(
+                    idx as usize,
+                    bounce_config,
+                    result_tx,
+                    request_rx,
+                    command_rx,
+                );
                 cubesat.run().await;
             });
 
-            cubesat_infos.push(CubesatInfo { handle, request_tx });
+            cubesat_infos.push(CubesatInfo {
+                handle,
+                request_tx,
+                command_tx,
+            });
         }
 
         Self {

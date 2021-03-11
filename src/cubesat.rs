@@ -31,6 +31,12 @@ pub struct SlotInfo {
     noncommits: Vec<Commit>,
 }
 
+#[derive(Clone, Debug)]
+pub enum Command {
+    Stop,
+    // Update slot info
+}
+
 impl SlotInfo {
     fn new() -> Self {
         Self {
@@ -71,6 +77,9 @@ pub struct Cubesat {
     result_tx: mpsc::Sender<Commit>,
     // receiver to receive Commits from the communications hub
     request_rx: mpsc::Receiver<Commit>,
+
+    // receiver for commands
+    command_rx: mpsc::Receiver<Command>,
 }
 
 impl Cubesat {
@@ -79,6 +88,7 @@ impl Cubesat {
         bounce_config: BounceConfig,
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
+        command_rx: mpsc::Receiver<Command>,
     ) -> Self {
         let mut rng = thread_rng();
 
@@ -95,6 +105,7 @@ impl Cubesat {
             private_key,
             result_tx,
             request_rx,
+            command_rx,
         }
     }
 
@@ -233,6 +244,7 @@ mod tests {
     async fn cubesat_sign_aggregate() {
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
 
         let mut c = Cubesat::new(
             0,
@@ -244,6 +256,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            command_rx,
         );
 
         tokio::spawn(async move {
