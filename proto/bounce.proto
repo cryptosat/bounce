@@ -11,9 +11,30 @@ message BounceResponse {
 service BounceSatellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
 
 message BounceConfig {
-    uint32 num_cubesats = 1;
-    // durations are in seconds
-    uint32 slot_duration = 2;
-    uint32 phase1_duration = 3;
-    uint32 phase2_duration = 4;
+  uint32 num_cubesats = 1;
+  // durations are in seconds
+  uint32 slot_duration = 2;
+  uint32 phase1_duration = 3;
+  uint32 phase2_duration = 4;
+}
+
+message Commit {
+  enum CommitType {
+    PRECOMMIT = 0;
+    NONCOMMIT = 1;
+  }
+
+  CommitType typ = 1;
+  // The index of slot i.
+  uint32 i = 2;
+  // The last committed index, for precommit it's equal to i.
+  uint32 j = 3;
+
+  // Whether this was created by aggregating cubesat signatures.
+  bool aggregated = 4;
+  // Public key by which signed the signature.
+  bytes public_key = 5;
+  // The message from which following signature is obtained
+  bytes msg = 6;
+  bytes signature = 7;
 }

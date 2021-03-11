@@ -1,4 +1,5 @@
-use super::{supermajority, BounceConfig, Commit, CommitType};
+use crate::commit::CommitType;
+use crate::{supermajority, BounceConfig, Commit};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
@@ -23,9 +24,9 @@ pub enum Phase {
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
     // Index of current slot
-    idx: usize,
+    idx: u32,
     // The index of last committed slot.
-    j: usize,
+    j: u32,
     phase: Phase,
     // Whether this cubesat has signed a precommit or non-commit for current slot
     signed: bool,
@@ -116,7 +117,7 @@ impl Cubesat {
     async fn process(&mut self, commit: Commit) {
         match self.slot_info.phase {
             Phase::First => {
-                if commit.typ == CommitType::Noncommit {
+                if commit.typ() == CommitType::Noncommit {
                     // Ignore noncommit
                     return;
                 }
@@ -152,7 +153,7 @@ impl Cubesat {
                 // Broadcast
             }
             Phase::Third => {
-                if commit.typ == CommitType::Precommit {
+                if commit.typ() == CommitType::Precommit {
                     // ignore precommit
                     return;
                 }
