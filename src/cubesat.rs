@@ -266,7 +266,7 @@ mod tests {
         let signature = Bn256.sign(&ground_station_private_key, &msg).unwrap();
 
         let precommit = Commit {
-            typ: CommitType::Precommit,
+            typ: CommitType::Precommit.into(),
             i: 1,
             j: 0,
             msg: "hello".as_bytes().to_vec(),
@@ -286,7 +286,7 @@ mod tests {
         assert!(result_opt.is_some());
         let commit = result_opt.unwrap();
 
-        assert_eq!(commit.typ, CommitType::Precommit);
+        assert_eq!(commit.typ(), CommitType::Precommit);
         assert_eq!(commit.i, 1);
         assert_eq!(commit.msg, msg);
         assert!(commit.aggregated);
