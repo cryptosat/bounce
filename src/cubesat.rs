@@ -33,7 +33,8 @@ pub struct SlotInfo {
 
 #[derive(Clone, Debug)]
 pub enum Command {
-    Stop,
+    // Terminates the Cubesat and shuts off.
+    Terminate,
     // Update slot info
 }
 
@@ -203,6 +204,14 @@ impl Cubesat {
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
                 }
+                Some(cmd) = self.command_rx.recv() => {
+                    match cmd {
+                        Command::Terminate => {
+                            println!("exiting...");
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -212,33 +221,35 @@ impl Cubesat {
 mod tests {
     use super::*;
 
-    // #[tokio::test]
-    // async fn cubesat_stop() {
-    //     let (result_tx, _) = mpsc::channel(1);
-    //     let (request_tx, request_rx) = mpsc::channel(15);
+    #[tokio::test]
+    async fn cubesat_terminate() {
+        let (result_tx, _) = mpsc::channel(1);
+        let (_request_tx, request_rx) = mpsc::channel(1);
+        let (command_tx, command_rx) = mpsc::channel(10);
 
-    //     let mut c = Cubesat::new(
-    //         0,
-    //         BounceConfig {
-    //             num_cubesats: 1,
-    //             slot_duration: 10,
-    //             phase1_duration: 4,
-    //             phase2_duration: 4,
-    //         },
-    //         result_tx,
-    //         request_rx,
-    //     );
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 1,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
 
-    //     tokio::spawn(async move {
-    //         c.run().await;
-    //     });
+        tokio::spawn(async move {
+            c.run().await;
+        });
 
-    //     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-    //     request_tx
-    //         .send(Command::Stop)
-    //         .await
-    //         .expect("Failed to send stop command");
-    // }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        command_tx
+            .send(Command::Terminate)
+            .await
+            .expect("Failed to send terminate command");
+    }
 
     #[tokio::test]
     async fn cubesat_sign_aggregate() {
