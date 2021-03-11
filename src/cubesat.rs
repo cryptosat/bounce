@@ -8,12 +8,6 @@ use tokio::sync::mpsc;
 use tokio::time::{interval, interval_at, Instant};
 
 #[derive(Clone, Debug)]
-pub enum Command {
-    Stop,
-    Sign(Commit),
-}
-
-#[derive(Clone, Debug)]
 pub enum Phase {
     Stop,
     First,
@@ -75,7 +69,7 @@ pub struct Cubesat {
 
     // sender to send to communications hub
     result_tx: mpsc::Sender<Commit>,
-    // receiver to receive commands from the communications hub
+    // receiver to receive Commits from the communications hub
     request_rx: mpsc::Receiver<Commit>,
 }
 
@@ -269,7 +263,7 @@ mod tests {
             typ: CommitType::Precommit.into(),
             i: 1,
             j: 0,
-            msg: "hello".as_bytes().to_vec(),
+            msg: msg.clone(),
             public_key: ground_station_public_key,
             signature,
             aggregated: false,
@@ -279,7 +273,7 @@ mod tests {
             request_tx
                 .send(precommit)
                 .await
-                .expect("failed to send sign command");
+                .expect("failed to send precommit");
         });
 
         let result_opt = result_rx.recv().await;

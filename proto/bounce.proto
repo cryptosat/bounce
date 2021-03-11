@@ -1,23 +1,6 @@
 syntax = "proto3";
 package bounce;
 
-message BounceRequest { bytes message = 1; }
-
-message BounceResponse {
-  bytes aggregate_public_key = 1;
-  bytes aggregate_signature = 2;
-}
-
-service BounceSatellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
-
-message BounceConfig {
-  uint32 num_cubesats = 1;
-  // durations are in seconds
-  uint32 slot_duration = 2;
-  uint32 phase1_duration = 3;
-  uint32 phase2_duration = 4;
-}
-
 message Commit {
   enum CommitType {
     PRECOMMIT = 0;
@@ -37,4 +20,14 @@ message Commit {
   // The message from which following signature is obtained
   bytes msg = 6;
   bytes signature = 7;
+}
+
+service BounceSatellite { rpc Bounce(Commit) returns (Commit); }
+
+message BounceConfig {
+  uint32 num_cubesats = 1;
+  // durations are in seconds
+  uint32 slot_duration = 2;
+  uint32 phase1_duration = 3;
+  uint32 phase2_duration = 4;
 }

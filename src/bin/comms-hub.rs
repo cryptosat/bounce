@@ -1,5 +1,5 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceConfig, BounceRequest, BounceResponse, Commit, Cubesat};
+use bounce::{BounceConfig, Commit, Cubesat};
 // use bounce::Cubesat;
 use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
@@ -57,10 +57,7 @@ impl BounceSatellite for CommsHub {
     //  then it needs to send it back to the ground station.
 
     // Sending back can also be managed by a separate thread.
-    async fn bounce(
-        &self,
-        request: Request<BounceRequest>,
-    ) -> Result<Response<BounceResponse>, Status> {
+    async fn bounce(&self, request: Request<Commit>) -> Result<Response<Commit>, Status> {
         println!("Got a request: {:?}", request);
 
         let (_result_tx, mut result_rx) = mpsc::channel(100);
