@@ -3,14 +3,6 @@ pub mod cubesat;
 
 tonic::include_proto!("bounce"); // The string specified here must match the proto package name
 
-#[derive(Clone, Debug)]
-pub struct BounceConfig {
-    pub num_cubesats: usize,
-    pub slot_duration: u64,   // in seconds
-    pub phase1_duration: u64, // in seconds
-    pub phase2_duration: u64, // in seconds
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum CommitType {
     Precommit,

@@ -129,7 +129,8 @@ impl Cubesat {
                 self.slot_info.precommits.push(precommit.clone());
 
                 // Aggregate
-                if self.slot_info.precommits.len() >= supermajority(self.bounce_config.num_cubesats)
+                if self.slot_info.precommits.len()
+                    >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
                     let (aggregate_signature, aggregate_public_key) =
                         Cubesat::aggregate(&self.slot_info.precommits);
@@ -167,11 +168,12 @@ impl Cubesat {
     }
 
     pub async fn run(&mut self) {
-        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration);
+        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration as u64);
         let mut slot_ticker = interval(slot_duration);
         let start = Instant::now();
-        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration);
-        let phase3_start = phase2_start + Duration::from_secs(self.bounce_config.phase2_duration);
+        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration as u64);
+        let phase3_start =
+            phase2_start + Duration::from_secs(self.bounce_config.phase2_duration as u64);
         let mut phase2_ticker = interval_at(phase2_start, slot_duration);
         let mut phase3_ticker = interval_at(phase3_start, slot_duration);
 

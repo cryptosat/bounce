@@ -29,7 +29,7 @@ impl CommsHub {
             let result_tx = result_tx.clone();
             let bounce_config = bounce_config.clone();
             let handle = tokio::spawn(async move {
-                let mut cubesat = Cubesat::new(idx, bounce_config, result_tx, request_rx);
+                let mut cubesat = Cubesat::new(idx as usize, bounce_config, result_tx, request_rx);
                 cubesat.run().await;
             });
 

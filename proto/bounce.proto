@@ -9,3 +9,11 @@ message BounceResponse {
 }
 
 service BounceSatellite { rpc Bounce(BounceRequest) returns (BounceResponse); }
+
+message BounceConfig {
+    uint32 num_cubesats = 1;
+    // durations are in seconds
+    uint32 slot_duration = 2;
+    uint32 phase1_duration = 3;
+    uint32 phase2_duration = 4;
+}
