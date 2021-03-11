@@ -139,7 +139,7 @@ impl Cubesat {
                     precommit.aggregated = true;
 
                     self.slot_info.aggregated = true;
-                    self.slot_info.j = precommit.idx;
+                    self.slot_info.j = precommit.i;
                 }
 
                 // Broadcast
@@ -264,7 +264,8 @@ mod tests {
 
         let precommit = Commit {
             typ: CommitType::Precommit,
-            idx: 0,
+            i: 1,
+            j: 0,
             msg: "hello".as_bytes().to_vec(),
             public_key: ground_station_public_key,
             signature,
@@ -283,7 +284,7 @@ mod tests {
         let commit = result_opt.unwrap();
 
         assert_eq!(commit.typ, CommitType::Precommit);
-        assert_eq!(commit.idx, 0);
+        assert_eq!(commit.i, 1);
         assert_eq!(commit.msg, msg);
         assert!(commit.aggregated);
 

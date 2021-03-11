@@ -21,7 +21,9 @@ pub enum CommitType {
 pub struct Commit {
     typ: CommitType,
     // The index
-    idx: usize,
+    i: usize,
+    // The last committed index
+    j: usize,
     // signer's public key
     msg: Vec<u8>,
     public_key: Vec<u8>,
