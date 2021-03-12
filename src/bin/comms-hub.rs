@@ -98,8 +98,10 @@ impl BounceSatellite for CommsHub {
             match receiver.recv().await {
                 Some(precommit) => {
                     if precommit.aggregated {
+                        println!("received aggregated signature");
                         return Ok(Response::new(precommit));
                     } else {
+                        println!("received signature, just broadcast");
                         for cubesat_info in &self.cubesat_infos {
                             if let Err(_) = cubesat_info.request_tx.send(commit.clone()).await {
                                 println!("failed to send to a cubesat");

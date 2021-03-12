@@ -128,17 +128,34 @@ impl Cubesat {
                     return;
                 }
 
-                // Sign
-                let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
                 let mut precommit = commit.clone();
-                precommit.signature = signature;
-                precommit.public_key = self.public_key.to_vec();
+
+                // If already aggregated, just update the slot information
+                if precommit.aggregated || self.slot_info.aggregated {
+                    self.slot_info.aggregated = true;
+                    self.slot_info.idx = precommit.i;
+                    return;
+                }
+
+                // If this didn't sign, then sign and broadcast.
+                if !self.slot_info.signed {
+                    // Sign
+                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+                    println!("Signed");
+                    let mut precommit = commit.clone();
+                    precommit.signature = signature;
+                    precommit.public_key = self.public_key.to_vec();
+                    self.slot_info.precommits.push(precommit.clone());
+                    self.slot_info.signed = true;
+                    self.result_tx.send(precommit).await.unwrap();
+                }
                 self.slot_info.precommits.push(precommit.clone());
 
                 // Aggregate
                 if self.slot_info.precommits.len()
                     >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
+                    println!("{} aggregated", self.id);
                     let (aggregate_signature, aggregate_public_key) =
                         Cubesat::aggregate(&self.slot_info.precommits);
 
@@ -148,10 +165,8 @@ impl Cubesat {
 
                     self.slot_info.aggregated = true;
                     self.slot_info.j = precommit.i;
+                    self.result_tx.send(precommit).await.unwrap();
                 }
-
-                // Broadcast
-                self.result_tx.send(precommit).await.unwrap();
             }
             Phase::Second => {
                 // Sign
@@ -187,20 +202,20 @@ impl Cubesat {
         self.slot_info.phase = Phase::First;
         loop {
             tokio::select! {
-                _ = slot_ticker.tick() => {
+                // _ = slot_ticker.tick() => {
 
-                    self.slot_info.next();
-                    println!("slot timer tick");
-                }
-                _ = phase2_ticker.tick() => {
-                    self.slot_info.phase = Phase::Second;
-                }
-                _ = phase3_ticker.tick() => {
-                    // Have to sign and send noncommit for (j + 1, i)
+                //     // self.slot_info.next();
+                //     println!("slot timer tick");
+                // }
+                // _ = phase2_ticker.tick() => {
+                //     self.slot_info.phase = Phase::Second;
+                // }
+                // _ = phase3_ticker.tick() => {
+                //     // Have to sign and send noncommit for (j + 1, i)
 
-                    self.slot_info.phase = Phase::Third;
+                //     self.slot_info.phase = Phase::Third;
 
-                }
+                // }
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
                 }
