@@ -322,6 +322,15 @@ mod tests {
         assert_eq!(commit.typ(), CommitType::Precommit);
         assert_eq!(commit.i, 1);
         assert_eq!(commit.msg, msg);
+        assert!(!commit.aggregated);
+
+        let result_opt = result_rx.recv().await;
+        assert!(result_opt.is_some());
+        let commit = result_opt.unwrap();
+
+        assert_eq!(commit.typ(), CommitType::Precommit);
+        assert_eq!(commit.i, 1);
+        assert_eq!(commit.msg, msg);
         assert!(commit.aggregated);
 
         let _ = Bn256
