@@ -18,7 +18,7 @@ pub enum Phase {
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
     // Index of current slot
-    idx: u32,
+    i: u32,
     // The index of last committed slot.
     j: u32,
     phase: Phase,
@@ -41,7 +41,7 @@ pub enum Command {
 impl SlotInfo {
     fn new() -> Self {
         Self {
-            idx: 0,
+            i: 0,
             j: 0,
             phase: Phase::Stop,
             signed: false,
@@ -53,9 +53,9 @@ impl SlotInfo {
 
     fn next(&mut self) {
         if self.signed {
-            self.j = self.idx;
+            self.j = self.i;
         }
-        self.idx += 1;
+        self.i += 1;
         self.phase = Phase::First;
         self.signed = false;
         self.aggregated = false;
@@ -133,7 +133,7 @@ impl Cubesat {
                 // If already aggregated, just update the slot information
                 if precommit.aggregated || self.slot_info.aggregated {
                     self.slot_info.aggregated = true;
-                    self.slot_info.idx = precommit.i;
+                    self.slot_info.i = precommit.i;
                     return;
                 }
 
