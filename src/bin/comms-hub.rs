@@ -1,7 +1,7 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{BounceConfig, Command, Commit, Cubesat};
 // use bounce::Cubesat;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CubesatInfo {
@@ -12,7 +12,7 @@ pub struct CubesatInfo {
 
 pub struct CommsHub {
     // A channel to receive responses from Cubesats
-    result_rx: mpsc::Receiver<Commit>,
+    result_rx: Mutex<mpsc::Receiver<Commit>>,
 
     cubesat_infos: Vec<CubesatInfo>,
 }
@@ -21,6 +21,8 @@ impl CommsHub {
     // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new(bounce_config: BounceConfig) -> CommsHub {
         let (result_tx, result_rx) = mpsc::channel(15);
+
+        let result_rx = Mutex::new(result_rx);
 
         let mut cubesat_infos = Vec::new();
 
@@ -72,7 +74,13 @@ impl BounceSatellite for CommsHub {
     async fn bounce(&self, request: Request<Commit>) -> Result<Response<Commit>, Status> {
         println!("Got a request: {:?}", request);
 
-        let (_result_tx, mut result_rx) = mpsc::channel(100);
+        let commit: Commit = request.into_inner();
+
+        for cubesat_info in &self.cubesat_infos {
+            if let Err(_) = cubesat_info.request_tx.send(commit.clone()).await {
+                println!("failed to send to a cubesat");
+            }
+        }
 
         // let mut signatures = Vec::new();
         // let mut public_keys = Vec::new();
@@ -84,10 +92,23 @@ impl BounceSatellite for CommsHub {
         // If the cubesats don't produce either precommit or non commit within that time frame,
         // it will just return non-commit.
 
+        let mut receiver = self.result_rx.lock().await;
+
         loop {
-            tokio::select! {
-                Some(bounce_response) = result_rx.recv() => {
-                    return Ok(Response::new(bounce_response));
+            match receiver.recv().await {
+                Some(precommit) => {
+                    if precommit.aggregated {
+                        return Ok(Response::new(precommit));
+                    } else {
+                        for cubesat_info in &self.cubesat_infos {
+                            if let Err(_) = cubesat_info.request_tx.send(commit.clone()).await {
+                                println!("failed to send to a cubesat");
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    panic!("something didn't work out");
                 }
             }
         }
