@@ -134,6 +134,7 @@ impl Cubesat {
                 if precommit.aggregated || self.slot_info.aggregated {
                     self.slot_info.aggregated = true;
                     self.slot_info.i = precommit.i;
+                    self.slot_info.j = precommit.i;
                     return;
                 }
 
@@ -169,7 +170,35 @@ impl Cubesat {
                 }
             }
             Phase::Second => {
+                if commit.aggregated || self.slot_info.aggregated {
+                    self.slot_info.aggregated = true;
+
+                    self.slot_info.i = commit.i;
+                    if commit.typ() == CommitType::Precommit {
+                        self.slot_info.j = commit.i;
+                    } else if commit.typ() == CommitType::Noncommit {
+                        self.slot_info.j = commit.j;
+                    }
+
+                    return;
+                }
+
                 // Sign
+                if !self.slot_info.signed {
+                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+                    let mut commit = commit.clone();
+                    commit.signature = signature;
+                    commit.public_key = self.public_key.to_vec();
+
+                    if commit.typ() == CommitType::Precommit {
+                        self.slot_info.precommits.push(commit.clone());
+                    } else if commit.typ() == CommitType::Noncommit {
+                        self.slot_info.noncommits.push(commit.clone());
+                    }
+                    self.slot_info.signed = true;
+                    self.result_tx.send(commit).await.unwrap();
+                }
+
                 // Aggregate if > supermajority
                 // Broadcast
             }
@@ -336,5 +365,45 @@ mod tests {
         let _ = Bn256
             .verify(&commit.signature, &msg, &commit.public_key)
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn phase1_noncommit() {
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (_request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
+
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 1,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
+
+        c.slot_info.phase = Phase::First;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: 1,
+            j: 0,
+            aggregated: false,
+            public_key: Vec::new(),
+            msg: Vec::new(),
+            signature: Vec::new(),
+        };
+
+        c.process(noncommit).await;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
     }
 }
