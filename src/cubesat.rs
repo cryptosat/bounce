@@ -198,6 +198,9 @@ impl Cubesat {
                     }
                     self.slot_info.signed = true;
                     self.result_tx.send(commit).await.unwrap();
+                } else {
+                    // we we have already signed one, then we only keep
+                    // precommit if we signed precommit, or noncommit if we signed noncommit
                 }
 
                 if commit.typ() == CommitType::Precommit {
