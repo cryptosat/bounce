@@ -121,6 +121,11 @@ impl Cubesat {
     }
 
     async fn process(&mut self, commit: Commit) {
+        // If this has already aggregated, then return.
+        if self.slot_info.aggregated {
+            return;
+        }
+
         match self.slot_info.phase {
             Phase::First => {
                 if commit.typ() == CommitType::Noncommit {
@@ -131,10 +136,10 @@ impl Cubesat {
                 let mut precommit = commit.clone();
 
                 // If already aggregated, just update the slot information
-                if precommit.aggregated || self.slot_info.aggregated {
+                if precommit.aggregated {
                     self.slot_info.aggregated = true;
                     self.slot_info.i = precommit.i;
-                    self.slot_info.j = precommit.i;
+                    self.slot_info.j = precommit.j;
                     return;
                 }
 
@@ -170,16 +175,12 @@ impl Cubesat {
                 }
             }
             Phase::Second => {
-                if commit.aggregated || self.slot_info.aggregated {
+                // If the received commit is a multi-sig aggregated by another cubesat, then just
+                // update the slot information.
+                if commit.aggregated {
                     self.slot_info.aggregated = true;
-
                     self.slot_info.i = commit.i;
-                    if commit.typ() == CommitType::Precommit {
-                        self.slot_info.j = commit.i;
-                    } else if commit.typ() == CommitType::Noncommit {
-                        self.slot_info.j = commit.j;
-                    }
-
+                    self.slot_info.j = commit.j;
                     return;
                 }
 
@@ -199,8 +200,43 @@ impl Cubesat {
                     self.result_tx.send(commit).await.unwrap();
                 }
 
-                // Aggregate if > supermajority
-                // Broadcast
+                if commit.typ() == CommitType::Precommit {
+                    self.slot_info.precommits.push(commit.clone());
+
+                    if self.slot_info.precommits.len()
+                        >= supermajority(self.bounce_config.num_cubesats as usize)
+                    {
+                        let mut precommit = commit.clone();
+                        println!("{} aggregated", self.id);
+                        let (aggregate_signature, aggregate_public_key) =
+                            Cubesat::aggregate(&self.slot_info.precommits);
+
+                        precommit.signature = aggregate_signature;
+                        precommit.public_key = aggregate_public_key;
+                        precommit.aggregated = true;
+
+                        self.slot_info.aggregated = true;
+                        self.slot_info.j = precommit.i;
+                        self.result_tx.send(precommit).await.unwrap();
+                    }
+                } else if commit.typ() == CommitType::Noncommit {
+                    self.slot_info.noncommits.push(commit.clone());
+                    if self.slot_info.noncommits.len()
+                        >= supermajority(self.bounce_config.num_cubesats as usize)
+                    {
+                        let mut noncommit = commit.clone();
+                        println!("{} aggregated", self.id);
+                        let (aggregate_signature, aggregate_public_key) =
+                            Cubesat::aggregate(&self.slot_info.precommits);
+
+                        noncommit.signature = aggregate_signature;
+                        noncommit.public_key = aggregate_public_key;
+                        noncommit.aggregated = true;
+
+                        self.slot_info.aggregated = true;
+                        self.result_tx.send(noncommit).await.unwrap();
+                    }
+                }
             }
             Phase::Third => {
                 if commit.typ() == CommitType::Precommit {
