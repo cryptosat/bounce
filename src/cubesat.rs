@@ -442,4 +442,24 @@ mod tests {
         assert!(!c.slot_info.signed);
         assert!(!c.slot_info.aggregated);
     }
+
+    #[tokio::test]
+    async fn phase2_commit_noncommit() {
+
+    }
+
+    #[tokio::test]
+    async fn phase2_noncommit_commit() {
+
+    }
+
+    #[tokio::test]
+    async fn phase2_commit_aggregate() {
+
+    }
+
+    #[tokio::test]
+    async fn phase2_noncommit_aggregate() {
+
+    }
 }
