@@ -188,55 +188,45 @@ impl Cubesat {
                     let mut commit = commit.clone();
                     commit.signature = signature;
                     commit.public_key = self.public_key.to_vec();
-
-                    if commit.typ() == CommitType::Precommit {
-                        self.slot_info.precommits.push(commit.clone());
-                    } else if commit.typ() == CommitType::Noncommit {
-                        self.slot_info.noncommits.push(commit.clone());
-                    }
                     self.slot_info.signed = true;
                     self.result_tx.send(commit).await.unwrap();
-                } else {
-                    // we we have already signed one, then we only keep
-                    // precommit if we signed precommit, or noncommit if we signed noncommit
                 }
 
                 if commit.typ() == CommitType::Precommit {
                     self.slot_info.precommits.push(commit.clone());
-
-                    if self.slot_info.precommits.len()
-                        >= supermajority(self.bounce_config.num_cubesats as usize)
-                    {
-                        let mut precommit = commit.clone();
-                        println!("{} aggregated", self.id);
-                        let (aggregate_signature, aggregate_public_key) =
-                            Cubesat::aggregate(&self.slot_info.precommits);
-
-                        precommit.signature = aggregate_signature;
-                        precommit.public_key = aggregate_public_key;
-                        precommit.aggregated = true;
-
-                        self.slot_info.aggregated = true;
-                        self.slot_info.j = precommit.i;
-                        self.result_tx.send(precommit).await.unwrap();
-                    }
                 } else if commit.typ() == CommitType::Noncommit {
                     self.slot_info.noncommits.push(commit.clone());
-                    if self.slot_info.noncommits.len()
+                }
+
+                if commit.typ() == CommitType::Precommit
+                    && self.slot_info.precommits.len()
                         >= supermajority(self.bounce_config.num_cubesats as usize)
-                    {
-                        let mut noncommit = commit.clone();
-                        println!("{} aggregated", self.id);
-                        let (aggregate_signature, aggregate_public_key) =
-                            Cubesat::aggregate(&self.slot_info.precommits);
+                {
+                    println!("{} aggregated", self.id);
+                    let (aggregate_signature, aggregate_public_key) =
+                        Cubesat::aggregate(&self.slot_info.precommits);
 
-                        noncommit.signature = aggregate_signature;
-                        noncommit.public_key = aggregate_public_key;
-                        noncommit.aggregated = true;
+                    commit.signature = aggregate_signature;
+                    commit.public_key = aggregate_public_key;
+                    commit.aggregated = true;
 
-                        self.slot_info.aggregated = true;
-                        self.result_tx.send(noncommit).await.unwrap();
-                    }
+                    self.slot_info.aggregated = true;
+                    self.slot_info.j = commit.i;
+                    self.result_tx.send(commit).await.unwrap();
+                } else if commit.typ() == CommitType::Noncommit
+                    && self.slot_info.noncommits.len()
+                        >= supermajority(self.bounce_config.num_cubesats as usize)
+                {
+                    println!("{} aggregated", self.id);
+                    let (aggregate_signature, aggregate_public_key) =
+                        Cubesat::aggregate(&self.slot_info.precommits);
+
+                    commit.signature = aggregate_signature;
+                    commit.public_key = aggregate_public_key;
+                    commit.aggregated = true;
+
+                    self.slot_info.aggregated = true;
+                    self.result_tx.send(commit).await.unwrap();
                 }
             }
             Phase::Third => {
