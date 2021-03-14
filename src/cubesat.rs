@@ -120,7 +120,7 @@ impl Cubesat {
         (aggregate_signature, aggregate_public_key)
     }
 
-    async fn process(&mut self, commit: Commit) {
+    async fn process(&mut self, mut commit: Commit) {
         // If this has already aggregated, then return.
         if self.slot_info.aggregated {
             return;
@@ -141,21 +141,19 @@ impl Cubesat {
                     return;
                 }
 
-                let mut precommit = commit;
-
                 // If this didn't sign, then sign and broadcast.
                 if !self.slot_info.signed {
                     // Sign
-                    let signature = Bn256.sign(&self.private_key, &precommit.msg).unwrap();
+                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
                     println!("Signed");
-                    precommit.signature = signature;
-                    precommit.public_key = self.public_key.to_vec();
+                    commit.signature = signature;
+                    commit.public_key = self.public_key.to_vec();
                     self.slot_info.signed = true;
-                    self.result_tx.send(precommit.clone()).await.unwrap();
+                    self.result_tx.send(commit.clone()).await.unwrap();
                 }
 
                 // Now, the precommit is the one signed by me or other cubesats.
-                self.slot_info.precommits.push(precommit.clone());
+                self.slot_info.precommits.push(commit.clone());
 
                 // If we have at least supermajority of signature, then aggregate them and broadcast
                 if self.slot_info.precommits.len()
@@ -165,13 +163,13 @@ impl Cubesat {
                     let (aggregate_signature, aggregate_public_key) =
                         Cubesat::aggregate(&self.slot_info.precommits);
 
-                    precommit.signature = aggregate_signature;
-                    precommit.public_key = aggregate_public_key;
-                    precommit.aggregated = true;
+                    commit.signature = aggregate_signature;
+                    commit.public_key = aggregate_public_key;
+                    commit.aggregated = true;
 
                     self.slot_info.aggregated = true;
-                    self.slot_info.j = precommit.i;
-                    self.result_tx.send(precommit).await.unwrap();
+                    self.slot_info.j = commit.i;
+                    self.result_tx.send(commit).await.unwrap();
                 }
             }
             Phase::Second => {
