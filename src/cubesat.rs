@@ -141,18 +141,17 @@ impl Cubesat {
                     return;
                 }
 
-                let mut precommit = commit.clone();
+                let mut precommit = commit;
 
                 // If this didn't sign, then sign and broadcast.
                 if !self.slot_info.signed {
                     // Sign
-                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+                    let signature = Bn256.sign(&self.private_key, &precommit.msg).unwrap();
                     println!("Signed");
-                    let mut precommit = commit.clone();
                     precommit.signature = signature;
                     precommit.public_key = self.public_key.to_vec();
                     self.slot_info.signed = true;
-                    self.result_tx.send(precommit).await.unwrap();
+                    self.result_tx.send(precommit.clone()).await.unwrap();
                 }
 
                 // Now, the precommit is the one signed by me or other cubesats.
