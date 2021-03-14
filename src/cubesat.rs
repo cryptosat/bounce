@@ -133,15 +133,15 @@ impl Cubesat {
                     return;
                 }
 
-                let mut precommit = commit.clone();
-
                 // If already aggregated, just update the slot information
-                if precommit.aggregated {
+                if commit.aggregated {
                     self.slot_info.aggregated = true;
-                    self.slot_info.i = precommit.i;
-                    self.slot_info.j = precommit.j;
+                    self.slot_info.i = commit.i;
+                    self.slot_info.j = commit.j;
                     return;
                 }
+
+                let mut precommit = commit.clone();
 
                 // If this didn't sign, then sign and broadcast.
                 if !self.slot_info.signed {
@@ -151,13 +151,14 @@ impl Cubesat {
                     let mut precommit = commit.clone();
                     precommit.signature = signature;
                     precommit.public_key = self.public_key.to_vec();
-                    self.slot_info.precommits.push(precommit.clone());
                     self.slot_info.signed = true;
                     self.result_tx.send(precommit).await.unwrap();
                 }
+
+                // Now, the precommit is the one signed by me or other cubesats.
                 self.slot_info.precommits.push(precommit.clone());
 
-                // Aggregate
+                // If we have at least supermajority of signature, then aggregate them and broadcast
                 if self.slot_info.precommits.len()
                     >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
@@ -447,22 +448,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn phase2_commit_noncommit() {
-
-    }
+    async fn phase2_commit_noncommit() {}
 
     #[tokio::test]
-    async fn phase2_noncommit_commit() {
-
-    }
+    async fn phase2_noncommit_commit() {}
 
     #[tokio::test]
-    async fn phase2_commit_aggregate() {
-
-    }
+    async fn phase2_commit_aggregate() {}
 
     #[tokio::test]
-    async fn phase2_noncommit_aggregate() {
-
-    }
+    async fn phase2_noncommit_aggregate() {}
 }
