@@ -302,9 +302,20 @@ impl Cubesat {
                     self.slot_info.phase = Phase::Second;
                 }
                 _ = phase3_ticker.tick() => {
-                    // Have to sign and send noncommit for (j + 1, i)
-
                     self.slot_info.phase = Phase::Third;
+                    // Have to sign and send noncommit for (j + 1, i)
+                    let msg = format!("noncommit({}, {})", self.slot_info.j+1, self.slot_info.i);
+                    let signature = Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap();
+                    let noncommit = Commit {
+                        typ: CommitType::Noncommit.into(),
+                        i: self.slot_info.i,
+                        j: self.slot_info.j,
+                        msg: msg.into_bytes(),
+                        public_key: self.public_key.clone(),
+                        signature,
+                        aggregated: false,
+                    };
+                    self.result_tx.send(noncommit).await.unwrap();
                 }
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
