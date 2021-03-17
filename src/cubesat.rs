@@ -231,12 +231,47 @@ impl Cubesat {
             }
             Phase::Third => {
                 if commit.typ() == CommitType::Precommit {
-                    // ignore precommit
+                    // Ignore noncommit
                     return;
                 }
+
+                // If received aggregated signature, then update the slot information
+                if commit.aggregated {
+                    self.slot_info.aggregated = true;
+                    self.slot_info.i = commit.i;
+                    self.slot_info.j = commit.j;
+                    return;
+                }
+
                 // Sign
-                // Aggregate noncommits if > supermajority
-                // Broadcast
+                if !self.slot_info.signed {
+                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+                    let mut commit = commit.clone();
+                    commit.signature = signature;
+                    commit.public_key = self.public_key.to_vec();
+                    self.slot_info.signed = true;
+                    self.result_tx.send(commit).await.unwrap();
+                }
+
+                // Now, the noncommit is the one signed by me or other cubesats.
+                self.slot_info.noncommits.push(commit.clone());
+
+                // If we have at least supermajority of signature, then aggregate them and broadcast
+                if self.slot_info.noncommits.len()
+                    >= supermajority(self.bounce_config.num_cubesats as usize)
+                {
+                    println!("{} aggregated", self.id);
+                    let (aggregate_signature, aggregate_public_key) =
+                        Cubesat::aggregate(&self.slot_info.noncommits);
+
+                    commit.signature = aggregate_signature;
+                    commit.public_key = aggregate_public_key;
+                    commit.aggregated = true;
+
+                    self.slot_info.aggregated = true;
+                    self.slot_info.j = commit.i;
+                    self.result_tx.send(commit).await.unwrap();
+                }
             }
             Phase::Stop => {
                 // Does nothing.
@@ -258,20 +293,19 @@ impl Cubesat {
         self.slot_info.phase = Phase::First;
         loop {
             tokio::select! {
-                // _ = slot_ticker.tick() => {
+                _ = slot_ticker.tick() => {
 
-                //     // self.slot_info.next();
-                //     println!("slot timer tick");
-                // }
-                // _ = phase2_ticker.tick() => {
-                //     self.slot_info.phase = Phase::Second;
-                // }
-                // _ = phase3_ticker.tick() => {
-                //     // Have to sign and send noncommit for (j + 1, i)
+                    // self.slot_info.next();
+                    println!("slot timer tick");
+                }
+                _ = phase2_ticker.tick() => {
+                    self.slot_info.phase = Phase::Second;
+                }
+                _ = phase3_ticker.tick() => {
+                    // Have to sign and send noncommit for (j + 1, i)
 
-                //     self.slot_info.phase = Phase::Third;
-
-                // }
+                    self.slot_info.phase = Phase::Third;
+                }
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
                 }
@@ -435,14 +469,149 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn phase2_commit_noncommit() {}
+    async fn phase2_commit_noncommit() {
+        // Phase 2, first send commit, then noncommit. Then the Bounce unit should sign the commit
+        // and broadcast. If it receives the noncommit right after, then bounce unit should not sign
+        // the noncommit and it only needs to keep track that it has received a noncommit.
+
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (_request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
+
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 3,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
+
+        c.slot_info.phase = Phase::Second;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert!(c.slot_info.precommits.is_empty());
+
+        let msg = "hello".as_bytes().to_vec();
+
+        let mut rng = thread_rng();
+        let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
+
+        let precommit = Commit {
+            typ: CommitType::Precommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat1_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(precommit).await;
+        assert!(c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert_eq!(c.slot_info.precommits.len(), 1);
+
+        let cubesat2_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat2_public_key = Bn256.derive_public_key(&cubesat2_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat2_private_key, &msg).unwrap();
+
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat2_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(noncommit).await;
+        assert_eq!(1, c.slot_info.noncommits.len());
+    }
 
     #[tokio::test]
-    async fn phase2_noncommit_commit() {}
+    async fn phase2_noncommit_commit() {
+        // Similar as above, it only signs the first noncommit, and not the commit. Only keep track
+        // of the commit.
+
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (_request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
+
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 3,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
+
+        c.slot_info.phase = Phase::Second;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert!(c.slot_info.precommits.is_empty());
+
+        let msg = "hello".as_bytes().to_vec();
+
+        let mut rng = thread_rng();
+        let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
+
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat1_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(noncommit).await;
+        assert!(c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert_eq!(c.slot_info.noncommits.len(), 1);
+
+        let cubesat2_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat2_public_key = Bn256.derive_public_key(&cubesat2_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat2_private_key, &msg).unwrap();
+
+        let precommit = Commit {
+            typ: CommitType::Precommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat2_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(precommit).await;
+        assert_eq!(1, c.slot_info.noncommits.len());
+    }
 
     #[tokio::test]
-    async fn phase2_commit_aggregate() {}
+    async fn phase2_commit_aggregate() {
+        // Tests that in phase 2 the bounce unit aggregates signatures.
+    }
 
     #[tokio::test]
-    async fn phase2_noncommit_aggregate() {}
+    async fn phase2_noncommit_aggregate() {
+        // Tests that in phase 2 the bounce unit aggregates signatures.
+    }
 }
