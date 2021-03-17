@@ -474,7 +474,7 @@ mod tests {
         // and broadcast. If it receives the noncommit right after, then bounce unit should not sign
         // the noncommit and it only needs to keep track that it has received a noncommit.
 
-        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
 
@@ -519,6 +519,14 @@ mod tests {
         assert!(!c.slot_info.aggregated);
         assert_eq!(c.slot_info.precommits.len(), 1);
 
+        let result_opt = result_rx.recv().await;
+        assert!(result_opt.is_some());
+        let commit = result_opt.unwrap();
+        assert_eq!(commit.typ(), CommitType::Precommit);
+        assert_eq!(commit.i, 1);
+        assert_eq!(commit.msg, msg);
+        assert_eq!(commit.public_key, c.public_key);
+
         let cubesat2_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
         let cubesat2_public_key = Bn256.derive_public_key(&cubesat2_private_key).unwrap();
         let signature = Bn256.sign(&cubesat2_private_key, &msg).unwrap();
@@ -542,7 +550,7 @@ mod tests {
         // Similar as above, it only signs the first noncommit, and not the commit. Only keep track
         // of the commit.
 
-        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
 
@@ -586,6 +594,14 @@ mod tests {
         assert!(c.slot_info.signed);
         assert!(!c.slot_info.aggregated);
         assert_eq!(c.slot_info.noncommits.len(), 1);
+
+        let result_opt = result_rx.recv().await;
+        assert!(result_opt.is_some());
+        let commit = result_opt.unwrap();
+        assert_eq!(commit.typ(), CommitType::Noncommit);
+        assert_eq!(commit.i, 1);
+        assert_eq!(commit.msg, msg);
+        assert_eq!(commit.public_key, c.public_key);
 
         let cubesat2_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
         let cubesat2_public_key = Bn256.derive_public_key(&cubesat2_private_key).unwrap();
