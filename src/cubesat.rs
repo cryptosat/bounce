@@ -128,16 +128,16 @@ impl Cubesat {
 
         match self.slot_info.phase {
             Phase::First => {
-                if commit.typ() == CommitType::Noncommit {
-                    // Ignore noncommit
-                    return;
-                }
-
                 // If already aggregated, just update the slot information
                 if commit.aggregated {
                     self.slot_info.aggregated = true;
                     self.slot_info.i = commit.i;
                     self.slot_info.j = commit.j;
+                    return;
+                }
+
+                if commit.typ() == CommitType::Noncommit {
+                    // Ignore noncommit
                     return;
                 }
 
@@ -230,16 +230,16 @@ impl Cubesat {
                 }
             }
             Phase::Third => {
-                if commit.typ() == CommitType::Precommit {
-                    // Ignore noncommit
-                    return;
-                }
-
                 // If received aggregated signature, then update the slot information
                 if commit.aggregated {
                     self.slot_info.aggregated = true;
                     self.slot_info.i = commit.i;
                     self.slot_info.j = commit.j;
+                    return;
+                }
+
+                if commit.typ() == CommitType::Precommit {
+                    // Ignore noncommit
                     return;
                 }
 
