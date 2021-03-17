@@ -219,7 +219,7 @@ impl Cubesat {
                 {
                     println!("{} aggregated", self.id);
                     let (aggregate_signature, aggregate_public_key) =
-                        Cubesat::aggregate(&self.slot_info.precommits);
+                        Cubesat::aggregate(&self.slot_info.noncommits);
 
                     commit.signature = aggregate_signature;
                     commit.public_key = aggregate_public_key;
@@ -624,10 +624,98 @@ mod tests {
     #[tokio::test]
     async fn phase2_commit_aggregate() {
         // Tests that in phase 2 the bounce unit aggregates signatures.
+        let (result_tx, mut result_rx) = mpsc::channel(5);
+        let (_request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
+
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 1,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
+
+        c.slot_info.phase = Phase::Second;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert!(c.slot_info.precommits.is_empty());
+
+        let msg = "hello".as_bytes().to_vec();
+
+        let mut rng = thread_rng();
+        let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
+
+        let precommit = Commit {
+            typ: CommitType::Precommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat1_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(precommit).await;
+        assert!(c.slot_info.signed);
+        assert!(c.slot_info.aggregated);
+        assert_eq!(c.slot_info.precommits.len(), 1);
     }
 
     #[tokio::test]
     async fn phase2_noncommit_aggregate() {
         // Tests that in phase 2 the bounce unit aggregates signatures.
+        let (result_tx, mut result_rx) = mpsc::channel(5);
+        let (_request_tx, request_rx) = mpsc::channel(15);
+        let (_command_tx, command_rx) = mpsc::channel(10);
+
+        let mut c = Cubesat::new(
+            0,
+            BounceConfig {
+                num_cubesats: 1,
+                slot_duration: 10,
+                phase1_duration: 4,
+                phase2_duration: 4,
+            },
+            result_tx,
+            request_rx,
+            command_rx,
+        );
+
+        c.slot_info.phase = Phase::Second;
+
+        assert!(!c.slot_info.signed);
+        assert!(!c.slot_info.aggregated);
+        assert!(c.slot_info.noncommits.is_empty());
+
+        let msg = "hello".as_bytes().to_vec();
+
+        let mut rng = thread_rng();
+        let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
+
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: 1,
+            j: 0,
+            msg: msg.clone(),
+            public_key: cubesat1_public_key,
+            signature,
+            aggregated: false,
+        };
+
+        c.process(noncommit).await;
+        assert!(c.slot_info.signed);
+        assert!(c.slot_info.aggregated);
+        assert_eq!(c.slot_info.noncommits.len(), 1);
     }
 }
