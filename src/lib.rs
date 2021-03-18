@@ -16,5 +16,6 @@ mod tests {
         assert_eq!(supermajority(10), 7);
         assert_eq!(supermajority(25), 17);
         assert_eq!(supermajority(1), 1);
+        assert_eq!(supermajority(3), 2);
     }
 }

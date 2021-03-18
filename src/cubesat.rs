@@ -148,7 +148,16 @@ impl Cubesat {
         self.result_tx.send(commit).await.unwrap();
     }
 
-    async fn process(&mut self, mut commit: Commit) {
+    async fn sign_and_broadcast(&mut self, mut commit: Commit) {
+        println!("Bounce unit {}: signed a {:?}", self.id, commit.typ());
+        let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
+        commit.signature = signature;
+        commit.public_key = self.public_key.to_vec();
+        self.slot_info.signed = true;
+        self.result_tx.send(commit.clone()).await.unwrap();
+    }
+
+    async fn process(&mut self, commit: Commit) {
         // If thie Bounce unit has already aggregated or received an aggregate signature, then just
         // return.
         if self.slot_info.aggregated {
@@ -173,13 +182,7 @@ impl Cubesat {
 
                 // If this didn't sign, then sign and broadcast.
                 if !self.slot_info.signed {
-                    // Sign
-                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
-                    println!("Signed");
-                    commit.signature = signature;
-                    commit.public_key = self.public_key.to_vec();
-                    self.slot_info.signed = true;
-                    self.result_tx.send(commit.clone()).await.unwrap();
+                    self.sign_and_broadcast(commit.clone()).await;
                 }
 
                 // Now, the precommit is the one signed by me or other cubesats.
@@ -195,12 +198,7 @@ impl Cubesat {
             Phase::Second => {
                 // Sign
                 if !self.slot_info.signed {
-                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
-                    let mut commit = commit.clone();
-                    commit.signature = signature;
-                    commit.public_key = self.public_key.to_vec();
-                    self.slot_info.signed = true;
-                    self.result_tx.send(commit).await.unwrap();
+                    self.sign_and_broadcast(commit.clone()).await;
                 }
 
                 if commit.typ() == CommitType::Precommit {
@@ -225,16 +223,6 @@ impl Cubesat {
                 if commit.typ() == CommitType::Precommit {
                     // Ignore noncommit
                     return;
-                }
-
-                // Sign
-                if !self.slot_info.signed {
-                    let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
-                    let mut commit = commit.clone();
-                    commit.signature = signature;
-                    commit.public_key = self.public_key.to_vec();
-                    self.slot_info.signed = true;
-                    self.result_tx.send(commit).await.unwrap();
                 }
 
                 // Now, the noncommit is the one signed by me or other cubesats.
@@ -277,19 +265,23 @@ impl Cubesat {
                 }
                 _ = phase3_ticker.tick() => {
                     self.slot_info.phase = Phase::Third;
-                    // Have to sign and send noncommit for (j + 1, i)
-                    let msg = format!("noncommit({}, {})", self.slot_info.j+1, self.slot_info.i);
-                    let signature = Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap();
-                    let noncommit = Commit {
-                        typ: CommitType::Noncommit.into(),
-                        i: self.slot_info.i,
-                        j: self.slot_info.j,
-                        msg: msg.into_bytes(),
-                        public_key: self.public_key.clone(),
-                        signature,
-                        aggregated: false,
-                    };
-                    self.result_tx.send(noncommit).await.unwrap();
+
+                    if !self.slot_info.signed {
+                        // Sign and broadcast noncommit for (j+1, i)
+
+                        let noncommit =                             Commit {
+                            typ: CommitType::Noncommit.into(),
+                            i: self.slot_info.i,
+                            j: self.slot_info.j,
+                            msg: format!("noncommit({}, {})", self.slot_info.j+1, self.slot_info.i).into_bytes(),
+                            ..Default::default()
+                        };
+
+                        self.sign_and_broadcast(
+                            noncommit.clone()
+                        ).await;
+                        self.slot_info.noncommits.push(noncommit);
+                    }
                 }
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
@@ -309,6 +301,8 @@ impl Cubesat {
 
 #[cfg(test)]
 mod tests {
+    use bls_signatures_rs::MultiSignature;
+
     use super::*;
 
     #[tokio::test]
@@ -755,7 +749,7 @@ mod tests {
         let mut c = Cubesat::new(
             0,
             BounceConfig {
-                num_cubesats: 1,
+                num_cubesats: 3,
                 slot_duration: 10,
                 phase1_duration: 4,
                 phase2_duration: 4,
@@ -765,24 +759,37 @@ mod tests {
             command_rx,
         );
 
+        // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
+        let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: c.slot_info.i,
+            j: c.slot_info.j,
+            msg: msg.clone().into_bytes(),
+            public_key: c.public_key.clone(),
+            signature: Bn256.sign(&c.private_key, &msg.as_bytes()).unwrap(),
+            aggregated: false,
+        };
 
-        assert!(!c.slot_info.signed);
+        c.sign_and_broadcast(noncommit.clone()).await;
+        c.slot_info.noncommits.push(noncommit);
+
+        assert!(c.slot_info.signed);
         assert!(!c.slot_info.aggregated);
-        assert!(c.slot_info.noncommits.is_empty());
+        assert_eq!(c.slot_info.noncommits.len(), 1);
 
-        let msg = "hello".as_bytes().to_vec();
-
+        // Then another Bounce unit sends it noncommit, which results in aggregation.
         let mut rng = thread_rng();
         let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
         let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
-        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg.as_bytes()).unwrap();
 
         let noncommit = Commit {
             typ: CommitType::Noncommit.into(),
-            i: 1,
-            j: 0,
-            msg: msg.clone(),
+            i: c.slot_info.i,
+            j: c.slot_info.j,
+            msg: msg.into_bytes(),
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
@@ -791,6 +798,6 @@ mod tests {
         c.process(noncommit).await;
         assert!(c.slot_info.signed);
         assert!(c.slot_info.aggregated);
-        assert_eq!(c.slot_info.noncommits.len(), 1);
+        assert_eq!(c.slot_info.noncommits.len(), 2);
     }
 }
