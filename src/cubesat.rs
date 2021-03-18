@@ -149,21 +149,23 @@ impl Cubesat {
     }
 
     async fn process(&mut self, mut commit: Commit) {
-        // If this has already aggregated, then return.
+        // If thie Bounce unit has already aggregated or received an aggregate signature, then just
+        // return.
         if self.slot_info.aggregated {
+            return;
+        }
+
+        // If the commit is an aggregate signature, then we note that this slot is aggregated and
+        // update the last committed slot and current slot information.
+        if commit.aggregated {
+            self.slot_info.aggregated = true;
+            self.slot_info.i = commit.i;
+            self.slot_info.j = commit.j;
             return;
         }
 
         match self.slot_info.phase {
             Phase::First => {
-                // If already aggregated, just update the slot information
-                if commit.aggregated {
-                    self.slot_info.aggregated = true;
-                    self.slot_info.i = commit.i;
-                    self.slot_info.j = commit.j;
-                    return;
-                }
-
                 if commit.typ() == CommitType::Noncommit {
                     // Ignore noncommit
                     return;
@@ -191,15 +193,6 @@ impl Cubesat {
                 }
             }
             Phase::Second => {
-                // If the received commit is a multi-sig aggregated by another cubesat, then just
-                // update the slot information.
-                if commit.aggregated {
-                    self.slot_info.aggregated = true;
-                    self.slot_info.i = commit.i;
-                    self.slot_info.j = commit.j;
-                    return;
-                }
-
                 // Sign
                 if !self.slot_info.signed {
                     let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
@@ -229,14 +222,6 @@ impl Cubesat {
                 }
             }
             Phase::Third => {
-                // If received aggregated signature, then update the slot information
-                if commit.aggregated {
-                    self.slot_info.aggregated = true;
-                    self.slot_info.i = commit.i;
-                    self.slot_info.j = commit.j;
-                    return;
-                }
-
                 if commit.typ() == CommitType::Precommit {
                     // Ignore noncommit
                     return;
