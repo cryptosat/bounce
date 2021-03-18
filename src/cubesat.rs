@@ -124,6 +124,30 @@ impl Cubesat {
         (aggregate_signature, aggregate_public_key)
     }
 
+    fn get_commits(&self, commit_type: CommitType) -> &[Commit] {
+        if commit_type == CommitType::Precommit {
+            &self.slot_info.precommits
+        } else {
+            &self.slot_info.noncommits
+        }
+    }
+
+    async fn aggregate_and_broadcast(&mut self, mut commit: Commit) {
+        println!("Bounce unit {}: aggregating {:?}", self.id, commit.typ());
+        let (aggregate_signature, aggregate_public_key) =
+            Cubesat::aggregate(self.get_commits(commit.typ()));
+
+        commit.signature = aggregate_signature;
+        commit.public_key = aggregate_public_key;
+        commit.aggregated = true;
+
+        self.slot_info.aggregated = true;
+        if commit.typ() == CommitType::Precommit {
+            self.slot_info.j = commit.i;
+        }
+        self.result_tx.send(commit).await.unwrap();
+    }
+
     async fn process(&mut self, mut commit: Commit) {
         // If this has already aggregated, then return.
         if self.slot_info.aggregated {
@@ -163,17 +187,7 @@ impl Cubesat {
                 if self.slot_info.precommits.len()
                     >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
-                    println!("{} aggregated", self.id);
-                    let (aggregate_signature, aggregate_public_key) =
-                        Cubesat::aggregate(&self.slot_info.precommits);
-
-                    commit.signature = aggregate_signature;
-                    commit.public_key = aggregate_public_key;
-                    commit.aggregated = true;
-
-                    self.slot_info.aggregated = true;
-                    self.slot_info.j = commit.i;
-                    self.result_tx.send(commit).await.unwrap();
+                    self.aggregate_and_broadcast(commit).await;
                 }
             }
             Phase::Second => {
@@ -206,31 +220,12 @@ impl Cubesat {
                     && self.slot_info.precommits.len()
                         >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
-                    println!("{} aggregated", self.id);
-                    let (aggregate_signature, aggregate_public_key) =
-                        Cubesat::aggregate(&self.slot_info.precommits);
-
-                    commit.signature = aggregate_signature;
-                    commit.public_key = aggregate_public_key;
-                    commit.aggregated = true;
-
-                    self.slot_info.aggregated = true;
-                    self.slot_info.j = commit.i;
-                    self.result_tx.send(commit).await.unwrap();
+                    self.aggregate_and_broadcast(commit).await;
                 } else if commit.typ() == CommitType::Noncommit
                     && self.slot_info.noncommits.len()
                         >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
-                    println!("{} aggregated", self.id);
-                    let (aggregate_signature, aggregate_public_key) =
-                        Cubesat::aggregate(&self.slot_info.noncommits);
-
-                    commit.signature = aggregate_signature;
-                    commit.public_key = aggregate_public_key;
-                    commit.aggregated = true;
-
-                    self.slot_info.aggregated = true;
-                    self.result_tx.send(commit).await.unwrap();
+                    self.aggregate_and_broadcast(commit).await;
                 }
             }
             Phase::Third => {
@@ -264,17 +259,7 @@ impl Cubesat {
                 if self.slot_info.noncommits.len()
                     >= supermajority(self.bounce_config.num_cubesats as usize)
                 {
-                    println!("{} aggregated", self.id);
-                    let (aggregate_signature, aggregate_public_key) =
-                        Cubesat::aggregate(&self.slot_info.noncommits);
-
-                    commit.signature = aggregate_signature;
-                    commit.public_key = aggregate_public_key;
-                    commit.aggregated = true;
-
-                    self.slot_info.aggregated = true;
-                    self.slot_info.j = commit.i;
-                    self.result_tx.send(commit).await.unwrap();
+                    self.aggregate_and_broadcast(commit).await;
                 }
             }
             Phase::Stop => {
