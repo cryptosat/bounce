@@ -642,7 +642,7 @@ mod tests {
     #[tokio::test]
     async fn phase2_commit_aggregate() {
         // Tests that in phase 2 the bounce unit aggregates signatures.
-        let (result_tx, mut result_rx) = mpsc::channel(5);
+        let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
 
@@ -691,7 +691,7 @@ mod tests {
     #[tokio::test]
     async fn phase2_noncommit_aggregate() {
         // Tests that in phase 2 the bounce unit aggregates signatures.
-        let (result_tx, mut result_rx) = mpsc::channel(5);
+        let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
 

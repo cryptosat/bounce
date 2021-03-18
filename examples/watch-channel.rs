@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             while watch_rx.changed().await.is_ok() {
                 println!("{}, received = {:?}", receiver.id, *watch_rx.borrow());
-                if let Err(_) = mpsc_tx.send(receiver.id).await {
+                if mpsc_tx.send(receiver.id).await.is_err() {
                     println!("receiver dropped");
                     break;
                 }

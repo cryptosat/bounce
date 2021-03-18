@@ -5,9 +5,9 @@ use tokio::sync::{mpsc, Mutex};
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CubesatInfo {
-    handle: tokio::task::JoinHandle<()>,
+    _handle: tokio::task::JoinHandle<()>,
     request_tx: mpsc::Sender<Commit>,
-    command_tx: mpsc::Sender<Command>,
+    _command_tx: mpsc::Sender<Command>,
 }
 
 pub struct CommsHub {
@@ -44,9 +44,9 @@ impl CommsHub {
             });
 
             cubesat_infos.push(CubesatInfo {
-                handle,
+                _handle: handle,
                 request_tx,
-                command_tx,
+                _command_tx: command_tx,
             });
         }
 
@@ -77,7 +77,7 @@ impl BounceSatellite for CommsHub {
         let commit: Commit = request.into_inner();
 
         for cubesat_info in &self.cubesat_infos {
-            if let Err(_) = cubesat_info.request_tx.send(commit.clone()).await {
+            if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
                 println!("failed to send to a cubesat");
             }
         }
@@ -103,7 +103,7 @@ impl BounceSatellite for CommsHub {
                     } else {
                         println!("received signature, just broadcast");
                         for cubesat_info in &self.cubesat_infos {
-                            if let Err(_) = cubesat_info.request_tx.send(commit.clone()).await {
+                            if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
                                 println!("failed to send to a cubesat");
                             }
                         }
