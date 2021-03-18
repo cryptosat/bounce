@@ -64,6 +64,13 @@ impl SlotInfo {
     }
 }
 
+/// Bounce Unit invariants
+/// 1. A Bounce unit will never send a precommit or non-commit if it has already sent a precommit
+/// or non-commit
+/// 2. A Bounce unit will never send a precommit or non-commit if it has already received an
+/// aggregated precommit or non-commit or has sent one.
+/// 3. A Bounce unit will never send an aggregated precommit or non-commit if it has either received
+/// an aggregated precommit or non-commit or has already sent one.
 pub struct Cubesat {
     id: usize,
 
