@@ -52,9 +52,6 @@ impl SlotInfo {
     }
 
     fn next(&mut self) {
-        if self.signed {
-            self.j = self.i;
-        }
         self.i += 1;
         self.phase = Phase::First;
         self.signed = false;
@@ -302,7 +299,7 @@ impl Cubesat {
             tokio::select! {
                 _ = slot_ticker.tick() => {
 
-                    // self.slot_info.next();
+                    self.slot_info.next();
                     println!("slot timer tick");
                 }
                 _ = phase2_ticker.tick() => {
