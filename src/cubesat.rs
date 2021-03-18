@@ -269,14 +269,17 @@ impl Cubesat {
                     if !self.slot_info.signed {
                         // Sign and broadcast noncommit for (j+1, i)
 
-                        let noncommit =                             Commit {
+                        let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
+
+                        let noncommit = Commit {
                             typ: CommitType::Noncommit.into(),
                             i: self.slot_info.i,
                             j: self.slot_info.j,
-                            msg: format!("noncommit({}, {})", self.slot_info.j+1, self.slot_info.i).into_bytes(),
-                            ..Default::default()
+                            msg: msg.clone().into_bytes(),
+                            public_key: self.public_key.clone(),
+                            signature: Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap(),
+                            aggregated: false,
                         };
-
                         self.sign_and_broadcast(
                             noncommit.clone()
                         ).await;
