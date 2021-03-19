@@ -7,7 +7,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::{interval, interval_at, Instant};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
     Stop,
     First,
@@ -160,6 +160,10 @@ impl Cubesat {
     }
 
     async fn process(&mut self, mut commit: Commit) {
+        if self.slot_info.phase == Phase::Stop {
+            return;
+        }
+
         // If thie Bounce unit has already aggregated or received an aggregate signature, then just
         // return.
         if self.slot_info.aggregated {
@@ -176,18 +180,15 @@ impl Cubesat {
 
         match self.slot_info.phase {
             Phase::First => {
-                if commit.typ() == CommitType::Noncommit {
-                    // Ignore noncommit
-                    return;
-                }
+                // Phase 1 only handles precommits
+                if commit.typ() == CommitType::Precommit {
+                    if !self.slot_info.signed {
+                        commit = self.sign_and_broadcast(commit).await;
+                    }
 
-                // If this didn't sign, then sign and broadcast.
-                if !self.slot_info.signed {
-                    commit = self.sign_and_broadcast(commit).await;
+                    // Now, the precommit is the one signed by me or other cubesats.
+                    self.slot_info.precommits.push(commit.clone());
                 }
-
-                // Now, the precommit is the one signed by me or other cubesats.
-                self.slot_info.precommits.push(commit.clone());
             }
             Phase::Second => {
                 // Sign
@@ -202,17 +203,16 @@ impl Cubesat {
                 }
             }
             Phase::Third => {
+                // At the beginning of the Phase 3, this Bounce unit has signed and broadcast
+                // a noncommit, so it will only listen to others' commits.
                 if commit.typ() == CommitType::Precommit {
-                    // Ignore noncommit
-                    return;
+                    self.slot_info.precommits.push(commit.clone());
+                } else if commit.typ() == CommitType::Noncommit {
+                    self.slot_info.noncommits.push(commit.clone());
                 }
-
-                // Noncommit from another Bounce unit.
-                self.slot_info.noncommits.push(commit.clone());
             }
             Phase::Stop => {
-                // Does nothing.
-                return;
+                unreachable!("Handled Stop phase earlier in the function.");
             }
         }
 
@@ -687,15 +687,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn phase3_ignore_precommit() {
-        let (result_tx, _result_rx) = mpsc::channel(1);
+    async fn phase3_receives_precommit() {
+        let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
 
         let mut c = Cubesat::new(
             0,
             BounceConfig {
-                num_cubesats: 1,
+                num_cubesats: 3,
                 slot_duration: 10,
                 phase1_duration: 4,
                 phase2_duration: 4,
@@ -704,28 +704,45 @@ mod tests {
             request_rx,
             command_rx,
         );
-
+        // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
+        let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
+        let noncommit = Commit {
+            typ: CommitType::Noncommit.into(),
+            i: c.slot_info.i,
+            j: c.slot_info.j,
+            msg: msg.clone().into_bytes(),
+            public_key: c.public_key.clone(),
+            signature: Bn256.sign(&c.private_key, &msg.as_bytes()).unwrap(),
+            aggregated: false,
+        };
 
-        assert!(!c.slot_info.signed);
-        assert!(!c.slot_info.aggregated);
+        c.sign_and_broadcast(noncommit.clone()).await;
+        c.slot_info.noncommits.push(noncommit);
+
+        let msg = "hello".as_bytes().to_vec();
+
+        // Then another Bounce unit sends it precommit, and the Bounce unit just keeps track of it.
+        let mut rng = thread_rng();
+        let cubesat1_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let cubesat1_public_key = Bn256.derive_public_key(&cubesat1_private_key).unwrap();
+        let signature = Bn256.sign(&cubesat1_private_key, &msg).unwrap();
 
         let precommit = Commit {
             typ: CommitType::Precommit.into(),
-            i: 1,
-            j: 0,
+            i: c.slot_info.i,
+            j: c.slot_info.j,
+            msg,
+            public_key: cubesat1_public_key,
+            signature,
             aggregated: false,
-            public_key: Vec::new(),
-            msg: Vec::new(),
-            signature: Vec::new(),
         };
 
         c.process(precommit).await;
 
-        assert!(!c.slot_info.signed);
         assert!(!c.slot_info.aggregated);
-        assert!(c.slot_info.precommits.is_empty());
-        assert!(c.slot_info.noncommits.is_empty());
+        assert_eq!(c.slot_info.precommits.len(), 1);
+        assert_eq!(c.slot_info.noncommits.len(), 1);
     }
 
     #[tokio::test]
