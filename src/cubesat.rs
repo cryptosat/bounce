@@ -269,7 +269,7 @@ impl Cubesat {
                     if !self.slot_info.signed {
                         // Sign and broadcast noncommit for (j+1, i)
 
-                        let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
+                        let msg = format!("noncommit({}, {})", self.slot_info.j + 1, self.slot_info.i);
 
                         let noncommit = Commit {
                             typ: CommitType::Noncommit.into(),
