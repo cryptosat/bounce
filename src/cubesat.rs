@@ -148,16 +148,18 @@ impl Cubesat {
         self.result_tx.send(commit).await.unwrap();
     }
 
-    async fn sign_and_broadcast(&mut self, mut commit: Commit) {
+    async fn sign_and_broadcast(&mut self, mut commit: Commit) -> Commit {
         println!("Bounce unit {}: signed a {:?}", self.id, commit.typ());
         let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
         commit.signature = signature;
         commit.public_key = self.public_key.to_vec();
         self.slot_info.signed = true;
         self.result_tx.send(commit.clone()).await.unwrap();
+
+        commit
     }
 
-    async fn process(&mut self, commit: Commit) {
+    async fn process(&mut self, mut commit: Commit) {
         // If thie Bounce unit has already aggregated or received an aggregate signature, then just
         // return.
         if self.slot_info.aggregated {
@@ -166,6 +168,7 @@ impl Cubesat {
 
         // If the commit is an aggregate signature, then we note that this slot is aggregated and
         // update the last committed slot and current slot information.
+        // TODO: Accept only when i are equal.
         if commit.aggregated {
             self.slot_info.aggregated = true;
             self.slot_info.i = commit.i;
@@ -182,41 +185,22 @@ impl Cubesat {
 
                 // If this didn't sign, then sign and broadcast.
                 if !self.slot_info.signed {
-                    self.sign_and_broadcast(commit.clone()).await;
+                    commit = self.sign_and_broadcast(commit).await;
                 }
 
                 // Now, the precommit is the one signed by me or other cubesats.
                 self.slot_info.precommits.push(commit.clone());
-
-                // If we have at least supermajority of signature, then aggregate them and broadcast
-                if self.slot_info.precommits.len()
-                    >= supermajority(self.bounce_config.num_cubesats as usize)
-                {
-                    self.aggregate_and_broadcast(commit).await;
-                }
             }
             Phase::Second => {
                 // Sign
                 if !self.slot_info.signed {
-                    self.sign_and_broadcast(commit.clone()).await;
+                    commit = self.sign_and_broadcast(commit).await;
                 }
 
                 if commit.typ() == CommitType::Precommit {
                     self.slot_info.precommits.push(commit.clone());
                 } else if commit.typ() == CommitType::Noncommit {
                     self.slot_info.noncommits.push(commit.clone());
-                }
-
-                if commit.typ() == CommitType::Precommit
-                    && self.slot_info.precommits.len()
-                        >= supermajority(self.bounce_config.num_cubesats as usize)
-                {
-                    self.aggregate_and_broadcast(commit).await;
-                } else if commit.typ() == CommitType::Noncommit
-                    && self.slot_info.noncommits.len()
-                        >= supermajority(self.bounce_config.num_cubesats as usize)
-                {
-                    self.aggregate_and_broadcast(commit).await;
                 }
             }
             Phase::Third => {
@@ -225,20 +209,23 @@ impl Cubesat {
                     return;
                 }
 
-                // Now, the noncommit is the one signed by me or other cubesats.
+                // Noncommit from another Bounce unit.
                 self.slot_info.noncommits.push(commit.clone());
-
-                // If we have at least supermajority of signature, then aggregate them and broadcast
-                if self.slot_info.noncommits.len()
-                    >= supermajority(self.bounce_config.num_cubesats as usize)
-                {
-                    self.aggregate_and_broadcast(commit).await;
-                }
             }
             Phase::Stop => {
                 // Does nothing.
                 return;
             }
+        }
+
+        if self.slot_info.precommits.len()
+            >= supermajority(self.bounce_config.num_cubesats as usize)
+        {
+            self.aggregate_and_broadcast(commit).await;
+        } else if self.slot_info.noncommits.len()
+            >= supermajority(self.bounce_config.num_cubesats as usize)
+        {
+            self.aggregate_and_broadcast(commit).await;
         }
     }
 
