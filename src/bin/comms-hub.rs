@@ -20,14 +20,14 @@ pub struct CommsHub {
 impl CommsHub {
     // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new(bounce_config: BounceConfig) -> CommsHub {
-        let (result_tx, result_rx) = mpsc::channel(15);
+        let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
 
         let mut cubesat_infos = Vec::new();
 
         for idx in 0..bounce_config.num_cubesats {
-            let (request_tx, request_rx) = mpsc::channel(15);
+            let (request_tx, request_rx) = mpsc::channel(25);
             let (command_tx, command_rx) = mpsc::channel(10);
 
             let result_tx = result_tx.clone();
