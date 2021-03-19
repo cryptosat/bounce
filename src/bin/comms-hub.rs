@@ -102,6 +102,7 @@ impl BounceSatellite for CommsHub {
                         return Ok(Response::new(precommit));
                     } else {
                         println!("received signature, just broadcast");
+                        // TODO: Do not send to the cubesat that has sent this precommit.
                         for cubesat_info in &self.cubesat_infos {
                             if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
                                 println!("failed to send to a cubesat");

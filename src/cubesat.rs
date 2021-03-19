@@ -160,6 +160,10 @@ impl Cubesat {
     }
 
     async fn process(&mut self, mut commit: Commit) {
+        if self.public_key == commit.public_key {
+            return;
+        }
+
         if self.slot_info.phase == Phase::Stop {
             return;
         }
