@@ -168,10 +168,8 @@ impl Cubesat {
 
         // If the commit is an aggregate signature, then we note that this slot is aggregated and
         // update the last committed slot and current slot information.
-        // TODO: Accept only when i are equal.
-        if commit.aggregated {
+        if commit.aggregated && commit.i == self.slot_info.i {
             self.slot_info.aggregated = true;
-            self.slot_info.i = commit.i;
             self.slot_info.j = commit.j;
             return;
         }
