@@ -3,9 +3,7 @@ use crate::{supermajority, BounceConfig, Commit};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
-use std::time::Duration;
-use tokio::sync::mpsc;
-use tokio::time::{interval, interval_at, Instant};
+use tokio::sync::{broadcast, mpsc};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -83,6 +81,9 @@ pub struct Cubesat {
     // receiver to receive Commits from the communications hub
     request_rx: mpsc::Receiver<Commit>,
 
+    // Receiver for phase transitions.
+    timer_rx: broadcast::Receiver<Phase>,
+
     // receiver for commands
     command_rx: mpsc::Receiver<Command>,
 }
@@ -93,6 +94,7 @@ impl Cubesat {
         bounce_config: BounceConfig,
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
+        timer_rx: broadcast::Receiver<Phase>,
         command_rx: mpsc::Receiver<Command>,
     ) -> Self {
         let mut rng = thread_rng();
@@ -110,6 +112,7 @@ impl Cubesat {
             private_key,
             result_tx,
             request_rx,
+            timer_rx,
             command_rx,
         }
     }
@@ -232,48 +235,41 @@ impl Cubesat {
     }
 
     pub async fn run(&mut self) {
-        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration as u64);
-        let mut slot_ticker = interval(slot_duration);
-        let start = Instant::now();
-        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration as u64);
-        let phase3_start =
-            phase2_start + Duration::from_secs(self.bounce_config.phase2_duration as u64);
-        let mut phase2_ticker = interval_at(phase2_start, slot_duration);
-        let mut phase3_ticker = interval_at(phase3_start, slot_duration);
-
-        self.slot_info.phase = Phase::First;
         loop {
             tokio::select! {
-                _ = slot_ticker.tick() => {
+                Ok(phase) = self.timer_rx.recv() => {
+                    match phase {
+                        Phase::First => {
+                            self.slot_info.next();
+                        }
+                        Phase::Second => {
+                        }
+                        Phase::Third => {
+                            if !self.slot_info.signed {
+                                // Sign and broadcast noncommit for (j+1, i)
 
-                    self.slot_info.next();
-                    println!("slot timer tick");
-                }
-                _ = phase2_ticker.tick() => {
-                    self.slot_info.phase = Phase::Second;
-                }
-                _ = phase3_ticker.tick() => {
-                    self.slot_info.phase = Phase::Third;
+                                let msg = format!("noncommit({}, {})", self.slot_info.j + 1, self.slot_info.i);
 
-                    if !self.slot_info.signed {
-                        // Sign and broadcast noncommit for (j+1, i)
+                                let noncommit = Commit {
+                                    typ: CommitType::Noncommit.into(),
+                                    i: self.slot_info.i,
+                                    j: self.slot_info.j,
+                                    msg: msg.clone().into_bytes(),
+                                    public_key: self.public_key.clone(),
+                                    signature: Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap(),
+                                    aggregated: false,
+                                };
+                                self.sign_and_broadcast(
+                                    noncommit.clone()
+                                ).await;
+                                self.slot_info.noncommits.push(noncommit);
+                            }
+                        }
+                        Phase::Stop => {
 
-                        let msg = format!("noncommit({}, {})", self.slot_info.j + 1, self.slot_info.i);
-
-                        let noncommit = Commit {
-                            typ: CommitType::Noncommit.into(),
-                            i: self.slot_info.i,
-                            j: self.slot_info.j,
-                            msg: msg.clone().into_bytes(),
-                            public_key: self.public_key.clone(),
-                            signature: Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap(),
-                            aggregated: false,
-                        };
-                        self.sign_and_broadcast(
-                            noncommit.clone()
-                        ).await;
-                        self.slot_info.noncommits.push(noncommit);
+                        }
                     }
+                    self.slot_info.phase = phase;
                 }
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;

@@ -1,7 +1,9 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceConfig, Command, Commit, Cubesat};
+use bounce::{BounceConfig, Command, Commit, Cubesat, Phase};
 // use bounce::Cubesat;
-use tokio::sync::{mpsc, Mutex};
+use std::time::Duration;
+use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::time::{interval, interval_at, Instant};
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CubesatInfo {
@@ -11,9 +13,11 @@ pub struct CubesatInfo {
 }
 
 pub struct CommsHub {
+    bounce_config: BounceConfig,
     // A channel to receive responses from Cubesats
     result_rx: Mutex<mpsc::Receiver<Commit>>,
 
+    timer_tx: broadcast::Sender<Phase>,
     cubesat_infos: Vec<CubesatInfo>,
 }
 
@@ -26,7 +30,11 @@ impl CommsHub {
 
         let mut cubesat_infos = Vec::new();
 
+        // Initialized to Stop
+        let (timer_tx, _timer_rx) = broadcast::channel(15);
+
         for idx in 0..bounce_config.num_cubesats {
+            let timer_rx = timer_tx.subscribe();
             let (request_tx, request_rx) = mpsc::channel(25);
             let (command_tx, command_rx) = mpsc::channel(10);
 
@@ -38,6 +46,7 @@ impl CommsHub {
                     bounce_config,
                     result_tx,
                     request_rx,
+                    timer_rx,
                     command_rx,
                 );
                 cubesat.run().await;
@@ -51,6 +60,8 @@ impl CommsHub {
         }
 
         Self {
+            timer_tx,
+            bounce_config,
             result_rx,
             cubesat_infos,
         }
@@ -112,6 +123,34 @@ impl BounceSatellite for CommsHub {
                 }
                 _ => {
                     panic!("something didn't work out");
+                }
+            }
+        }
+    }
+}
+
+impl CommsHub {
+    async fn timer(&self) {
+        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration as u64);
+        let start = Instant::now();
+        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration as u64);
+        let phase3_start =
+            phase2_start + Duration::from_secs(self.bounce_config.phase2_duration as u64);
+        let mut slot_ticker = interval(slot_duration);
+        let mut phase2_ticker = interval_at(phase2_start, slot_duration);
+        let mut phase3_ticker = interval_at(phase3_start, slot_duration);
+
+        self.timer_tx.send(Phase::First).unwrap();
+        loop {
+            tokio::select! {
+                _ = slot_ticker.tick() => {
+                    self.timer_tx.send(Phase::First).unwrap();
+                }
+                _ = phase2_ticker.tick() => {
+                    self.timer_tx.send(Phase::Second).unwrap();
+                }
+                _ = phase3_ticker.tick() => {
+                    self.timer_tx.send(Phase::Third).unwrap();
                 }
             }
         }
