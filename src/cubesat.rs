@@ -298,6 +298,8 @@ mod tests {
         let (result_tx, _) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(1);
         let (command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -309,6 +311,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -328,6 +331,8 @@ mod tests {
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -339,6 +344,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -400,6 +406,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -411,6 +419,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -444,6 +453,7 @@ mod tests {
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
         let mut c = Cubesat::new(
             0,
@@ -455,6 +465,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -520,6 +531,8 @@ mod tests {
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -531,6 +544,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -594,6 +608,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -605,6 +621,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -643,6 +660,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -654,6 +673,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
@@ -691,6 +711,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -702,6 +724,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
@@ -750,6 +773,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_command_tx, command_rx) = mpsc::channel(10);
+        let (_timer_tx, _timer_rx) = broadcast::channel(15);
+
 
         let mut c = Cubesat::new(
             0,
@@ -761,6 +786,7 @@ mod tests {
             },
             result_tx,
             request_rx,
+            _timer_rx,
             command_rx,
         );
 
