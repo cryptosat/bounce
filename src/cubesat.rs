@@ -347,6 +347,7 @@ mod tests {
             _timer_rx,
             command_rx,
         );
+        c.slot_info.phase = Phase::First;
 
         tokio::spawn(async move {
             c.run().await;
