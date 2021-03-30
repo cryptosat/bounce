@@ -13,12 +13,35 @@ pub struct CubesatInfo {
 }
 
 pub struct CommsHub {
-    bounce_config: BounceConfig,
     // A channel to receive responses from Cubesats
     result_rx: Mutex<mpsc::Receiver<Commit>>,
 
-    timer_tx: broadcast::Sender<Phase>,
     cubesat_infos: Vec<CubesatInfo>,
+}
+
+async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) {
+    let slot_duration = Duration::from_secs(bounce_config.slot_duration as u64);
+    let start = Instant::now();
+    let phase2_start = start + Duration::from_secs(bounce_config.phase1_duration as u64);
+    let phase3_start = phase2_start + Duration::from_secs(bounce_config.phase2_duration as u64);
+    let mut slot_ticker = interval(slot_duration);
+    let mut phase2_ticker = interval_at(phase2_start, slot_duration);
+    let mut phase3_ticker = interval_at(phase3_start, slot_duration);
+
+    timer_tx.send(Phase::First).unwrap();
+    loop {
+        tokio::select! {
+            _ = slot_ticker.tick() => {
+                timer_tx.send(Phase::First).unwrap();
+            }
+            _ = phase2_ticker.tick() => {
+                timer_tx.send(Phase::Second).unwrap();
+            }
+            _ = phase3_ticker.tick() => {
+                timer_tx.send(Phase::Third).unwrap();
+            }
+        }
+    }
 }
 
 impl CommsHub {
@@ -28,6 +51,7 @@ impl CommsHub {
 
         let result_rx = Mutex::new(result_rx);
 
+        let num_cubesats = bounce_config.num_cubesats;
         let mut cubesat_infos = Vec::new();
 
         // Initialized to Stop
@@ -39,11 +63,10 @@ impl CommsHub {
             let (command_tx, command_rx) = mpsc::channel(10);
 
             let result_tx = result_tx.clone();
-            let bounce_config = bounce_config.clone();
             let handle = tokio::spawn(async move {
                 let mut cubesat = Cubesat::new(
                     idx as usize,
-                    bounce_config,
+                    num_cubesats,
                     result_tx,
                     request_rx,
                     timer_rx,
@@ -59,9 +82,11 @@ impl CommsHub {
             });
         }
 
+        tokio::spawn(async move {
+            timer(timer_tx, bounce_config).await;
+        });
+
         Self {
-            timer_tx,
-            bounce_config,
             result_rx,
             cubesat_infos,
         }
@@ -123,34 +148,6 @@ impl BounceSatellite for CommsHub {
                 }
                 _ => {
                     panic!("something didn't work out");
-                }
-            }
-        }
-    }
-}
-
-impl CommsHub {
-    async fn timer(&self) {
-        let slot_duration = Duration::from_secs(self.bounce_config.slot_duration as u64);
-        let start = Instant::now();
-        let phase2_start = start + Duration::from_secs(self.bounce_config.phase1_duration as u64);
-        let phase3_start =
-            phase2_start + Duration::from_secs(self.bounce_config.phase2_duration as u64);
-        let mut slot_ticker = interval(slot_duration);
-        let mut phase2_ticker = interval_at(phase2_start, slot_duration);
-        let mut phase3_ticker = interval_at(phase3_start, slot_duration);
-
-        self.timer_tx.send(Phase::First).unwrap();
-        loop {
-            tokio::select! {
-                _ = slot_ticker.tick() => {
-                    self.timer_tx.send(Phase::First).unwrap();
-                }
-                _ = phase2_ticker.tick() => {
-                    self.timer_tx.send(Phase::Second).unwrap();
-                }
-                _ = phase3_ticker.tick() => {
-                    self.timer_tx.send(Phase::Third).unwrap();
                 }
             }
         }

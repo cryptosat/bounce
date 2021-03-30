@@ -1,5 +1,5 @@
 use crate::commit::CommitType;
-use crate::{supermajority, BounceConfig, Commit};
+use crate::{supermajority, Commit};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use rand::{thread_rng, Rng};
@@ -70,7 +70,7 @@ pub struct Cubesat {
     id: usize,
 
     // Configuration for slot
-    bounce_config: BounceConfig,
+    num_cubesats: u32,
     slot_info: SlotInfo,
 
     public_key: Vec<u8>,
@@ -91,7 +91,7 @@ pub struct Cubesat {
 impl Cubesat {
     pub fn new(
         id: usize,
-        bounce_config: BounceConfig,
+        num_cubesats: u32,
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
         timer_rx: broadcast::Receiver<Phase>,
@@ -106,7 +106,7 @@ impl Cubesat {
 
         Cubesat {
             id,
-            bounce_config,
+            num_cubesats,
             slot_info,
             public_key,
             private_key,
@@ -223,13 +223,9 @@ impl Cubesat {
             }
         }
 
-        if self.slot_info.precommits.len()
-            >= supermajority(self.bounce_config.num_cubesats as usize)
-        {
+        if self.slot_info.precommits.len() >= supermajority(self.num_cubesats as usize) {
             self.aggregate_and_broadcast(commit).await;
-        } else if self.slot_info.noncommits.len()
-            >= supermajority(self.bounce_config.num_cubesats as usize)
-        {
+        } else if self.slot_info.noncommits.len() >= supermajority(self.num_cubesats as usize) {
             self.aggregate_and_broadcast(commit).await;
         }
     }
@@ -300,20 +296,7 @@ mod tests {
         let (command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
 
         tokio::spawn(async move {
             c.run().await;
@@ -333,20 +316,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
         c.slot_info.phase = Phase::First;
 
         tokio::spawn(async move {
@@ -409,20 +379,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
 
         c.slot_info.phase = Phase::First;
 
@@ -456,19 +413,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 3,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -534,20 +479,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 3,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -611,20 +543,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -663,20 +582,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 1,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -714,20 +620,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 3,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
         let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
@@ -776,20 +669,7 @@ mod tests {
         let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-
-        let mut c = Cubesat::new(
-            0,
-            BounceConfig {
-                num_cubesats: 3,
-                slot_duration: 10,
-                phase1_duration: 4,
-                phase2_duration: 4,
-            },
-            result_tx,
-            request_rx,
-            _timer_rx,
-            command_rx,
-        );
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
 
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
