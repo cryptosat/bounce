@@ -1,0 +1,18 @@
+name: bounce
+version: git
+summary: Bounce protocol implementation.
+description: Bounce demo app.
+
+base: core20
+confinement: devmode
+
+parts:
+  bounce:
+    plugin: rust
+    source: https://github.com/taegyunkim/bounce.git
+
+apps:
+    bounce-space:
+      command: bin/comms-hub
+    bounce-ground:
+      command: bin/ground-station
