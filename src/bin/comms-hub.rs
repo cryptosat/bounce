@@ -165,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //  - phase 2 duration
     // 3. The IP:PORT to use
 
-    let addr = "[::1]:50051".parse()?;
+    let addr = "0.0.0.0:50051".parse()?;
 
     let bounce_config = BounceConfig {
         num_cubesats: 10,

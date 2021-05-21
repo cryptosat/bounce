@@ -6,7 +6,7 @@ use rand::{thread_rng, Rng};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = BounceSatelliteClient::connect("http://[::1]:50051").await?;
+    let mut client = BounceSatelliteClient::connect("http://0.0.0.0:50051").await?;
 
     let msg = chrono::Utc::now().to_rfc2822();
     println!("Message to send: {}", msg);
