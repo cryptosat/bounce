@@ -1,4 +1,4 @@
-name: bounce
+name: bounce-blockchain
 version: git
 summary: Bounce protocol implementation.
 description: Bounce demo app.
