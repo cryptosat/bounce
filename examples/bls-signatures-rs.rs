@@ -13,6 +13,7 @@ fn main() {
     let mut rng = thread_rng();
 
     let secret_key_1: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    println!("Size of the secret key: {}", secret_key_1.len());
     let secret_key_2: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
 
     // Derive public keys from secret key
@@ -23,6 +24,7 @@ fn main() {
 
     // Sign identical message with two different secret keys
     let sig_1 = Bn256.sign(&secret_key_1, &message).unwrap();
+    println!("Size of the signature: {}", sig_1.len());
     let sig_2 = Bn256.sign(&secret_key_2, &message).unwrap();
 
     // Aggregate public keys
