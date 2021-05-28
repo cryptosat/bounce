@@ -12,7 +12,7 @@ pub struct CubesatInfo {
     _command_tx: mpsc::Sender<Command>,
 }
 
-pub struct CommsHub {
+pub struct CubesatFlock {
     // A channel to receive responses from Cubesats
     result_rx: Mutex<mpsc::Receiver<Commit>>,
 
@@ -44,9 +44,9 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) 
     }
 }
 
-impl CommsHub {
+impl CubesatFlock {
     // TODO: Define a constructor to parameterize the number of cubesats
-    pub fn new(bounce_config: BounceConfig) -> CommsHub {
+    pub fn new(bounce_config: BounceConfig) -> CubesatFlock {
         let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
@@ -94,15 +94,15 @@ impl CommsHub {
 }
 
 #[tonic::async_trait]
-impl BounceSatellite for CommsHub {
+impl BounceSatellite for CubesatFlock {
     // The bounce function is marked async, so whenever this function is called, we should broadcast
     // the message to sign to cubesats.
-    // broadcast channel here: CommsHub -> Cubesats, each cubesat needs to see messages in order
+    // broadcast channel here: CubesatFlock -> Cubesats, each cubesat needs to see messages in order
     //  without any loss.
     //
     // Whenever the cubesat receive such request, then the cubesat signs and then sends back
     // the signature (either aggregated or single) to the comms hub.
-    // Multi-producer, single consumer channel here, cubesats to commshub
+    // Multi-producer, single consumer channel here, cubesats to CubesatFlock
     //  and the comms hub needs to check whether the signature is aggregated, if it is aggregated
     //  then it needs to send it back to the ground station.
 
@@ -174,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         phase2_duration: 4,
     };
 
-    let comms_hub = CommsHub::new(bounce_config);
+    let comms_hub = CubesatFlock::new(bounce_config);
 
     // This installs a BounceSatelliteServer service.
     // Question: could this actually successfully make RPCs over unreliable connections between

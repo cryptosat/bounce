@@ -32,5 +32,5 @@ name = "ground-station"
 path = "src/bin/ground-station.rs"
 
 [[bin]]
-name = "comms-hub"
-path = "src/bin/comms-hub.rs"
+name = "cubesat-flock"
+path = "src/bin/cubesat-flock.rs"

@@ -13,6 +13,6 @@ parts:
 
 apps:
     bounce-space:
-      command: bin/comms-hub
+      command: bin/cubesat-flock
     bounce-ground:
       command: bin/ground-station
