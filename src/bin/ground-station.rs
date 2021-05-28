@@ -2,11 +2,36 @@ use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use bounce::bounce_satellite_client::BounceSatelliteClient;
 use bounce::{commit::CommitType, Commit};
+use clap::{crate_authors, crate_version, App, Arg};
 use rand::{thread_rng, Rng};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = BounceSatelliteClient::connect("http://0.0.0.0:50051").await?;
+    let matches = App::new("Bounce ground station")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .arg(
+            Arg::with_name("addr")
+                .short("a")
+                .value_name("ADDRESS")
+                .help("Specify an alternate address to connect to.")
+                .default_value("0.0.0.0"),
+        )
+        .arg(
+            Arg::with_name("port")
+                .short("p")
+                .value_name("PORT")
+                .help("Specify an alternate port to connect to.")
+                .default_value("50051"),
+        )
+        .get_matches();
+
+    let addr = matches.value_of("addr").unwrap();
+    let port = matches.value_of("port").unwrap();
+
+    let dst = format!("http://{}:{}", addr, port);
+
+    let mut client = BounceSatelliteClient::connect(dst).await?;
 
     let msg = chrono::Utc::now().to_rfc2822();
     println!("Message to send: {}", msg);

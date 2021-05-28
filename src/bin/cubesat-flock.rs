@@ -1,5 +1,6 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{BounceConfig, Command, Commit, Cubesat, Phase};
+use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::Cubesat;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -164,8 +165,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //  - phase 1 duration
     //  - phase 2 duration
     // 3. The IP:PORT to use
+    let matches = App::new("A flock of Bounce cubesat units")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .arg(
+            Arg::with_name("addr")
+                .short("a")
+                .value_name("ADDRESS")
+                .help("Specify an alternate address to use.")
+                .default_value("0.0.0.0"),
+        )
+        .arg(
+            Arg::with_name("port")
+                .short("p")
+                .value_name("PORT")
+                .help("Specify an alternate port to use.")
+                .default_value("50051"),
+        )
+        .get_matches();
 
-    let addr = "0.0.0.0:50051".parse()?;
+    let addr = matches.value_of("addr").unwrap();
+    let port = matches.value_of("port").unwrap();
+
+    let socket_addr = format!("{}:{}", addr, port).parse()?;
 
     let bounce_config = BounceConfig {
         num_cubesats: 10,
@@ -181,7 +203,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ISS and the Earth?
     Server::builder()
         .add_service(BounceSatelliteServer::new(comms_hub))
-        .serve(addr)
+        .serve(socket_addr)
         .await?;
 
     Ok(())
