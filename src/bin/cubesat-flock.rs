@@ -1,7 +1,8 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{BounceConfig, Command, Commit, Cubesat, Phase};
+use bounce::{configure_log, configure_log_to_file, BounceConfig, Command, Commit, Cubesat, Phase};
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::Cubesat;
+use log::info;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::{interval, interval_at, Instant};
@@ -109,13 +110,13 @@ impl BounceSatellite for CubesatFlock {
 
     // Sending back can also be managed by a separate thread.
     async fn bounce(&self, request: Request<Commit>) -> Result<Response<Commit>, Status> {
-        println!("Got a request: {:?}", request);
+        info!("Got a request: {:?}", request);
 
         let commit: Commit = request.into_inner();
 
         for cubesat_info in &self.cubesat_infos {
             if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
-                println!("failed to send to a cubesat");
+                info!("failed to send to a cubesat");
             }
         }
 
@@ -135,14 +136,14 @@ impl BounceSatellite for CubesatFlock {
             match receiver.recv().await {
                 Some(precommit) => {
                     if precommit.aggregated {
-                        println!("received aggregated signature");
+                        info!("received aggregated signature");
                         return Ok(Response::new(precommit));
                     } else {
-                        println!("received signature, just broadcast");
+                        info!("received signature, just broadcast");
                         // TODO: Do not send to the cubesat that has sent this precommit.
                         for cubesat_info in &self.cubesat_infos {
                             if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
-                                println!("failed to send to a cubesat");
+                                info!("failed to send to a cubesat");
                             }
                         }
                     }
@@ -182,10 +183,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Specify an alternate port to use.")
                 .default_value("50051"),
         )
+        .arg(
+            Arg::with_name("log_to_stdout")
+                .help("By default logs are saved to files, if set log only to stdout.")
+                .takes_value(false),
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
     let port = matches.value_of("port").unwrap();
+    let log_to_stdout = matches.is_present("log_to_stdout");
+
+    if log_to_stdout {
+        configure_log()?;
+    } else {
+        configure_log_to_file("cubesat-flock")?;
+    }
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 

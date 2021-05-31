@@ -2,6 +2,7 @@ use crate::commit::CommitType;
 use crate::{supermajority, Commit};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
+use log::info;
 use rand::{thread_rng, Rng};
 use tokio::sync::{broadcast, mpsc};
 
@@ -136,7 +137,7 @@ impl Cubesat {
     }
 
     async fn aggregate_and_broadcast(&mut self, mut commit: Commit) {
-        println!("Bounce unit {}: aggregating {:?}", self.id, commit.typ());
+        info!("Bounce unit {}: aggregating {:?}", self.id, commit.typ());
         let (aggregate_signature, aggregate_public_key) =
             Cubesat::aggregate(self.get_commits(commit.typ()));
 
@@ -152,7 +153,7 @@ impl Cubesat {
     }
 
     async fn sign_and_broadcast(&mut self, mut commit: Commit) -> Commit {
-        println!("Bounce unit {}: signed a {:?}", self.id, commit.typ());
+        info!("Bounce unit {}: signed a {:?}", self.id, commit.typ());
         let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
         commit.signature = signature;
         commit.public_key = self.public_key.to_vec();
@@ -273,7 +274,7 @@ impl Cubesat {
                 Some(cmd) = self.command_rx.recv() => {
                     match cmd {
                         Command::Terminate => {
-                            println!("exiting...");
+                            info!("exiting...");
                             break;
                         }
                     }
