@@ -1,6 +1,6 @@
 # Bounce
 
-<iframe src="https://snapcraft.io/bounce-blockchain/embedded?button=white" frameborder="0" width="100%" height="310px" style="border: 1px solid #CCC; border-radius: 2px;"></iframe>
+[![snapcraft](https://snapcraft.io/bounce-blockchain/badge.svg)](https://snapcraft.io/bounce-blockchain)
 
 ## Building and Testing
 
