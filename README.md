@@ -1,5 +1,7 @@
 # Bounce
 
+<iframe src="https://snapcraft.io/bounce-blockchain/embedded?button=white" frameborder="0" width="100%" height="310px" style="border: 1px solid #CCC; border-radius: 2px;"></iframe>
+
 ## Building and Testing
 
 - Install [Rust](https://www.rust-lang.org/)
