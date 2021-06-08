@@ -35,18 +35,16 @@ A flock of Bounce cubesat units 0.1.0
 Taegyun Kim <k.taegyun@gmail.com>
 
 USAGE:
-    space-station [OPTIONS] [log_to_stdout]
+    space-station [OPTIONS] [log-to-stdout]
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help             Prints help information
+        --log-to-stdout    By default logs are saved to files, if set log only to stdout.
+    -V, --version          Prints version information
 
 OPTIONS:
     -a <ADDRESS>        Specify an alternate address to use. [default: 0.0.0.0]
     -p <PORT>           Specify an alternate port to use. [default: 50051]
-
-ARGS:
-    <log_to_stdout>    By default logs are saved to files, if set log only to stdout.
 ```
 
 ### ground-station
@@ -57,16 +55,14 @@ Bounce ground station 0.1.0
 Taegyun Kim <k.taegyun@gmail.com>
 
 USAGE:
-    ground-station [OPTIONS] [log_to_stdout]
+    ground-station [OPTIONS] [log-to-stdout]
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help             Prints help information
+        --log-to-stdout    By default logs are saved to files, if set log only to stdout.
+    -V, --version          Prints version information
 
 OPTIONS:
     -a <ADDRESS>        Specify an alternate address to connect to. [default: 0.0.0.0]
     -p <PORT>           Specify an alternate port to connect to. [default: 50051]
-
-ARGS:
-    <log_to_stdout>    By default logs are saved to files, if set log only to stdout.
 ```

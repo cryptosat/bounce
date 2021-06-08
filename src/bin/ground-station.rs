@@ -26,7 +26,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .default_value("50051"),
         )
         .arg(
-            Arg::with_name("log_to_stdout")
+            Arg::with_name("log-to-stdout")
+                .long("log-to-stdout")
                 .help("By default logs are saved to files, if set log only to stdout.")
                 .takes_value(false),
         )
@@ -34,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = matches.value_of("addr").unwrap();
     let port = matches.value_of("port").unwrap();
-    let log_to_stdout = matches.is_present("log_to_stdout");
+    let log_to_stdout = matches.is_present("log-to-stdout");
 
     if log_to_stdout {
         configure_log()?;
