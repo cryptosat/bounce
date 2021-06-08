@@ -189,6 +189,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("By default logs are saved to files, if set log only to stdout.")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("log-dir")
+                .long("log-dir")
+                .short("l")
+                .value_name("LOG_DIR")
+                .help("Specify a directory to save logs.")
+                .default_value("log"),
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
@@ -198,7 +206,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if log_to_stdout {
         configure_log()?;
     } else {
-        configure_log_to_file("space-station")?;
+        let log_dir = matches.value_of("log-dir").unwrap();
+        configure_log_to_file(log_dir, "space-station")?;
     }
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;

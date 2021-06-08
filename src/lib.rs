@@ -12,9 +12,9 @@ pub fn supermajority(n: usize) -> usize {
     (n as f64 / 3.0 * 2.0).ceil() as usize
 }
 
-pub fn configure_log_to_file(filename_base: &str) -> Result<(), SetLoggerError> {
+pub fn configure_log_to_file(dir: &str, filename_base: &str) -> Result<(), SetLoggerError> {
     let date = chrono::Utc::now();
-    let path = format!("log/{}-{}.log", filename_base, date);
+    let path = format!("{}/{}-{}.log", dir, filename_base, date);
 
     let logfile = FileAppender::builder().build(path).unwrap();
     let config = Config::builder()

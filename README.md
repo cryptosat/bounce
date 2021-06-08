@@ -44,6 +44,7 @@ FLAGS:
 
 OPTIONS:
     -a <ADDRESS>        Specify an alternate address to use. [default: 0.0.0.0]
+    -l, --log-dir <LOG_DIR>    Specify a directory to save logs [default: log]
     -p <PORT>           Specify an alternate port to use. [default: 50051]
 ```
 
@@ -64,5 +65,6 @@ FLAGS:
 
 OPTIONS:
     -a <ADDRESS>        Specify an alternate address to connect to. [default: 0.0.0.0]
+    -l, --log-dir <LOG_DIR>    Specify a directory to save logs [default: log]
     -p <PORT>           Specify an alternate port to connect to. [default: 50051]
 ```
