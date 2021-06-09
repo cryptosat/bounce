@@ -51,7 +51,7 @@ OPTIONS:
 ### ground-station
 
 ```sh
-#> ./target/debug/ground-station -h
+$> ./target/debug/ground-station -h
 Bounce ground station 0.1.0
 Taegyun Kim <k.taegyun@gmail.com>
 
