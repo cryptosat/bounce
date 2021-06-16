@@ -20,7 +20,34 @@ message Commit {
   // The message from which following signature is obtained
   bytes msg = 6;
   bytes signature = 7;
+  uint32 signer_id = 8;
 }
+
+// message BounceRequest { bytes msg = 1; }
+
+// message BounceResponse {
+//   enum ResponseType {
+//     COMMIT = 0;
+//     NONCOMMIT = 1;
+//     UNDECIDED = 2;
+//   }
+
+//   ResponseType typ = 1;
+
+//   // The current slot index.
+//   uint32 i = 2;
+//   // The last committed index, for COMMIT it's equal to i.
+//   uint32 j = 3;
+
+//   // The original message.
+//   bytes msg = 4;
+
+//   // Below fields don't make sense when response type is UNDECIDED.
+//   // The public key which was used to sign the message.
+//   bytes public_key = 5;
+//   // The signature obtained from signing message using the public key.
+//   bytes signature = 6;
+// }
 
 service BounceSatellite { rpc Bounce(Commit) returns (Commit); }
 

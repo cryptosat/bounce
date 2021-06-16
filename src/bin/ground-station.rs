@@ -76,6 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         public_key: ground_station_public_key,
         signature,
         aggregated: false,
+        // TODO: FIXME
+        signer_id: 100,
     };
 
     let request = tonic::Request::new(precommit);

@@ -18,6 +18,8 @@ pub struct SpaceStation {
     // A channel to receive responses from Cubesats
     result_rx: Mutex<mpsc::Receiver<Commit>>,
 
+    last_slot: Mutex<u32>,
+
     cubesat_infos: Vec<CubesatInfo>,
 }
 
@@ -88,8 +90,11 @@ impl SpaceStation {
             timer(timer_tx, bounce_config).await;
         });
 
+        let last_slot = Mutex::new(0 as u32);
+
         Self {
             result_rx,
+            last_slot,
             cubesat_infos,
         }
     }
@@ -136,8 +141,15 @@ impl BounceSatellite for SpaceStation {
             match receiver.recv().await {
                 Some(precommit) => {
                     if precommit.aggregated {
-                        info!("received aggregated signature");
-                        return Ok(Response::new(precommit));
+                        info!(
+                            "received aggregated signature from unit {}",
+                            precommit.signer_id
+                        );
+                        let mut idx = self.last_slot.lock().await;
+                        if *idx < precommit.i {
+                            *idx = precommit.i;
+                            return Ok(Response::new(precommit));
+                        }
                     } else {
                         info!("received signature, just broadcast");
                         // TODO: Do not send to the cubesat that has sent this precommit.
@@ -213,7 +225,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 
     let bounce_config = BounceConfig {
-        num_cubesats: 10,
+        num_cubesats: 5,
         slot_duration: 10,
         phase1_duration: 4,
         phase2_duration: 4,

@@ -57,6 +57,8 @@ impl SlotInfo {
         self.aggregated = false;
         self.precommits.clear();
         self.noncommits.clear();
+
+        info!("Starting slot {}", self.i);
     }
 }
 
@@ -144,11 +146,14 @@ impl Cubesat {
         commit.signature = aggregate_signature;
         commit.public_key = aggregate_public_key;
         commit.aggregated = true;
+        commit.i = self.slot_info.i;
+        commit.signer_id = self.id as u32;
 
         self.slot_info.aggregated = true;
         if commit.typ() == CommitType::Precommit {
             self.slot_info.j = commit.i;
         }
+        info!("Unit {} aggregated and broadcast", self.id);
         self.result_tx.send(commit).await.unwrap();
     }
 
@@ -157,6 +162,9 @@ impl Cubesat {
         let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
         commit.signature = signature;
         commit.public_key = self.public_key.to_vec();
+        commit.i = self.slot_info.i;
+        commit.signer_id = self.id as u32;
+
         self.slot_info.signed = true;
         self.result_tx.send(commit.clone()).await.unwrap();
 
@@ -255,6 +263,7 @@ impl Cubesat {
                                     public_key: self.public_key.clone(),
                                     signature: Bn256.sign(&self.private_key, &msg.as_bytes()).unwrap(),
                                     aggregated: false,
+                                    signer_id: self.id as u32,
                                 };
                                 self.sign_and_broadcast(
                                     noncommit.clone()
@@ -335,12 +344,13 @@ mod tests {
 
         let precommit = Commit {
             typ: CommitType::Precommit.into(),
-            i: 1,
+            i: 0,
             j: 0,
             msg: msg.clone(),
             public_key: ground_station_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         tokio::spawn(async move {
@@ -355,7 +365,7 @@ mod tests {
         let commit = result_opt.unwrap();
 
         assert_eq!(commit.typ(), CommitType::Precommit);
-        assert_eq!(commit.i, 1);
+        assert_eq!(commit.i, 0);
         assert_eq!(commit.msg, msg);
         assert!(!commit.aggregated);
 
@@ -364,7 +374,7 @@ mod tests {
         let commit = result_opt.unwrap();
 
         assert_eq!(commit.typ(), CommitType::Precommit);
-        assert_eq!(commit.i, 1);
+        assert_eq!(commit.i, 0);
         assert_eq!(commit.msg, msg);
         assert!(commit.aggregated);
 
@@ -395,6 +405,7 @@ mod tests {
             public_key: Vec::new(),
             msg: Vec::new(),
             signature: Vec::new(),
+            signer_id: 0,
         };
 
         c.process(noncommit).await;
@@ -431,12 +442,13 @@ mod tests {
 
         let precommit = Commit {
             typ: CommitType::Precommit.into(),
-            i: 1,
+            i: 0,
             j: 0,
             msg: msg.clone(),
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(precommit).await;
@@ -448,7 +460,7 @@ mod tests {
         assert!(result_opt.is_some());
         let commit = result_opt.unwrap();
         assert_eq!(commit.typ(), CommitType::Precommit);
-        assert_eq!(commit.i, 1);
+        assert_eq!(commit.i, 0);
         assert_eq!(commit.msg, msg);
         assert_eq!(commit.public_key, c.public_key);
 
@@ -464,6 +476,7 @@ mod tests {
             public_key: cubesat2_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(noncommit).await;
@@ -503,6 +516,7 @@ mod tests {
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(noncommit).await;
@@ -514,7 +528,7 @@ mod tests {
         assert!(result_opt.is_some());
         let commit = result_opt.unwrap();
         assert_eq!(commit.typ(), CommitType::Noncommit);
-        assert_eq!(commit.i, 1);
+        assert_eq!(commit.i, 0);
         assert_eq!(commit.msg, msg);
         assert_eq!(commit.public_key, c.public_key);
 
@@ -530,6 +544,7 @@ mod tests {
             public_key: cubesat2_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(precommit).await;
@@ -567,6 +582,7 @@ mod tests {
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(precommit).await;
@@ -606,6 +622,7 @@ mod tests {
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(noncommit).await;
@@ -633,6 +650,7 @@ mod tests {
             public_key: c.public_key.clone(),
             signature: Bn256.sign(&c.private_key, &msg.as_bytes()).unwrap(),
             aggregated: false,
+            signer_id: 0,
         };
 
         c.sign_and_broadcast(noncommit.clone()).await;
@@ -654,6 +672,7 @@ mod tests {
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(precommit).await;
@@ -683,6 +702,7 @@ mod tests {
             public_key: c.public_key.clone(),
             signature: Bn256.sign(&c.private_key, &msg.as_bytes()).unwrap(),
             aggregated: false,
+            signer_id: 0,
         };
 
         c.sign_and_broadcast(noncommit.clone()).await;
@@ -706,6 +726,7 @@ mod tests {
             public_key: cubesat1_public_key,
             signature,
             aggregated: false,
+            signer_id: 0,
         };
 
         c.process(noncommit).await;
