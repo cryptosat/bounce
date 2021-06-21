@@ -49,7 +49,6 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) 
 }
 
 impl SpaceStation {
-    // TODO: Define a constructor to parameterize the number of cubesats
     pub fn new(bounce_config: BounceConfig) -> SpaceStation {
         let (result_tx, result_rx) = mpsc::channel(25);
 
@@ -170,14 +169,6 @@ impl BounceSatellite for SpaceStation {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: parse program config
-    // 1. time to run the experiment, it will shut off after this time.
-    // 2. Bounce config
-    //  - number of cubesats
-    //  - slot duration
-    //  - phase 1 duration
-    //  - phase 2 duration
-    // 3. The IP:PORT to use
     let matches = App::new("A flock of Bounce cubesat units")
         .version(crate_version!())
         .author(crate_authors!())
