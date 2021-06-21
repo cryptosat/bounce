@@ -1,5 +1,5 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{configure_log, configure_log_to_file, BounceConfig, Command, Commit, Cubesat, Phase};
+use bounce::{configure_log, configure_log_to_file, BounceConfig, Commit, Cubesat, Phase};
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::Cubesat;
 use log::info;
@@ -11,7 +11,6 @@ use tonic::{transport::Server, Request, Response, Status};
 pub struct CubesatInfo {
     _handle: tokio::task::JoinHandle<()>,
     request_tx: mpsc::Sender<Commit>,
-    _command_tx: mpsc::Sender<Command>,
 }
 
 pub struct SpaceStation {
@@ -63,7 +62,6 @@ impl SpaceStation {
         for idx in 0..bounce_config.num_cubesats {
             let timer_rx = timer_tx.subscribe();
             let (request_tx, request_rx) = mpsc::channel(25);
-            let (command_tx, command_rx) = mpsc::channel(10);
 
             let result_tx = result_tx.clone();
             let handle = tokio::spawn(async move {
@@ -73,7 +71,6 @@ impl SpaceStation {
                     result_tx,
                     request_rx,
                     timer_rx,
-                    command_rx,
                 );
                 cubesat.run().await;
             });
@@ -81,7 +78,6 @@ impl SpaceStation {
             cubesat_infos.push(CubesatInfo {
                 _handle: handle,
                 request_tx,
-                _command_tx: command_tx,
             });
         }
 

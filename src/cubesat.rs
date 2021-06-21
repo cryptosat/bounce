@@ -30,13 +30,6 @@ pub struct SlotInfo {
     noncommits: Vec<Commit>,
 }
 
-#[derive(Clone, Debug)]
-pub enum Command {
-    // Terminates the Cubesat and shuts off.
-    Terminate,
-    // Update slot info
-}
-
 impl SlotInfo {
     fn new() -> Self {
         Self {
@@ -86,9 +79,6 @@ pub struct Cubesat {
 
     // Receiver for phase transitions.
     timer_rx: broadcast::Receiver<Phase>,
-
-    // receiver for commands
-    command_rx: mpsc::Receiver<Command>,
 }
 
 impl Cubesat {
@@ -98,7 +88,6 @@ impl Cubesat {
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
         timer_rx: broadcast::Receiver<Phase>,
-        command_rx: mpsc::Receiver<Command>,
     ) -> Self {
         let mut rng = thread_rng();
 
@@ -116,7 +105,6 @@ impl Cubesat {
             result_tx,
             request_rx,
             timer_rx,
-            command_rx,
         }
     }
 
@@ -280,14 +268,6 @@ impl Cubesat {
                 Some(commit) = self.request_rx.recv() => {
                     self.process(commit).await;
                 }
-                Some(cmd) = self.command_rx.recv() => {
-                    match cmd {
-                        Command::Terminate => {
-                            info!("exiting...");
-                            break;
-                        }
-                    }
-                }
             }
         }
     }
@@ -296,37 +276,15 @@ impl Cubesat {
 #[cfg(test)]
 mod tests {
     use bls_signatures_rs::MultiSignature;
-
     use super::*;
-
-    #[tokio::test]
-    async fn cubesat_terminate() {
-        let (result_tx, _) = mpsc::channel(1);
-        let (_request_tx, request_rx) = mpsc::channel(1);
-        let (command_tx, command_rx) = mpsc::channel(10);
-        let (_timer_tx, _timer_rx) = broadcast::channel(15);
-
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
-
-        tokio::spawn(async move {
-            c.run().await;
-        });
-
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        command_tx
-            .send(Command::Terminate)
-            .await
-            .expect("Failed to send terminate command");
-    }
 
     #[tokio::test]
     async fn cubesat_sign_aggregate() {
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
         c.slot_info.phase = Phase::First;
 
         tokio::spawn(async move {
@@ -387,10 +345,9 @@ mod tests {
     async fn phase1_noncommit() {
         let (result_tx, _result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
 
         c.slot_info.phase = Phase::First;
 
@@ -422,10 +379,9 @@ mod tests {
 
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -490,10 +446,9 @@ mod tests {
 
         let (result_tx, mut result_rx) = mpsc::channel(1);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -556,10 +511,9 @@ mod tests {
         // Tests that in phase 2 the bounce unit aggregates signatures.
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -596,10 +550,9 @@ mod tests {
         // Tests that in phase 2 the bounce unit aggregates signatures.
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
 
         c.slot_info.phase = Phase::Second;
 
@@ -635,10 +588,9 @@ mod tests {
     async fn phase3_receives_precommit() {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
         let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
@@ -686,10 +638,9 @@ mod tests {
     async fn phase3_sign_noncommit_aggregate() {
         let (result_tx, _result_rx) = mpsc::channel(5);
         let (_request_tx, request_rx) = mpsc::channel(15);
-        let (_command_tx, command_rx) = mpsc::channel(10);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, command_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
 
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
