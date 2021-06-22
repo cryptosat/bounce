@@ -50,8 +50,6 @@ impl SlotInfo {
         self.aggregated = false;
         self.precommits.clear();
         self.noncommits.clear();
-
-        info!("Starting slot {}", self.i);
     }
 }
 
@@ -127,7 +125,6 @@ impl Cubesat {
     }
 
     async fn aggregate_and_broadcast(&mut self, mut commit: Commit) {
-        info!("Bounce unit {}: aggregating {:?}", self.id, commit.typ());
         let (aggregate_signature, aggregate_public_key) =
             Cubesat::aggregate(self.get_commits(commit.typ()));
 
@@ -141,12 +138,16 @@ impl Cubesat {
         if commit.typ() == CommitType::Precommit {
             self.slot_info.j = commit.i;
         }
-        info!("Unit {} aggregated and broadcast", self.id);
+        info!(
+            "Slot {}\tBounce Unit {}\tCommit Type {:?}\taggregated and broadcast",
+            self.slot_info.i,
+            self.id,
+            commit.typ(),
+        );
         self.result_tx.send(commit).await.unwrap();
     }
 
     async fn sign_and_broadcast(&mut self, mut commit: Commit) -> Commit {
-        info!("Bounce unit {}: signed a {:?}", self.id, commit.typ());
         let signature = Bn256.sign(&self.private_key, &commit.msg).unwrap();
         commit.signature = signature;
         commit.public_key = self.public_key.to_vec();
@@ -155,6 +156,13 @@ impl Cubesat {
 
         self.slot_info.signed = true;
         self.result_tx.send(commit.clone()).await.unwrap();
+
+        info!(
+            "Slot {}\tBounce Unit {}\tCommit Type {:?}\tsign and broadcast",
+            self.slot_info.i,
+            self.id,
+            commit.typ(),
+        );
 
         commit
     }
@@ -234,6 +242,11 @@ impl Cubesat {
                     match phase {
                         Phase::First => {
                             self.slot_info.next();
+                            info!(
+                                "Slot {}\tBounce Unit {}\tFirst Phase Starts",
+                                self.slot_info.i,
+                                self.id,
+                            );
                         }
                         Phase::Second => {
                         }
@@ -275,8 +288,8 @@ impl Cubesat {
 
 #[cfg(test)]
 mod tests {
-    use bls_signatures_rs::MultiSignature;
     use super::*;
+    use bls_signatures_rs::MultiSignature;
 
     #[tokio::test]
     async fn cubesat_sign_aggregate() {
