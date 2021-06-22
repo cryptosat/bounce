@@ -65,13 +65,8 @@ impl SpaceStation {
 
             let result_tx = result_tx.clone();
             let handle = tokio::spawn(async move {
-                let mut cubesat = Cubesat::new(
-                    idx as usize,
-                    num_cubesats,
-                    result_tx,
-                    request_rx,
-                    timer_rx,
-                );
+                let mut cubesat =
+                    Cubesat::new(idx as usize, num_cubesats, result_tx, request_rx, timer_rx);
                 cubesat.run().await;
             });
 
@@ -85,7 +80,7 @@ impl SpaceStation {
             timer(timer_tx, bounce_config).await;
         });
 
-        let last_slot = Mutex::new(0 as u32);
+        let last_slot = Mutex::new(0);
 
         Self {
             result_rx,
