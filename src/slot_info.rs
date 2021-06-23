@@ -44,3 +44,47 @@ impl SlotInfo {
         self.noncommits.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commit::CommitType;
+
+    #[test]
+    fn slot_info_init_test() {
+        let slot_info = SlotInfo::new();
+
+        assert_eq!(slot_info.i, 0);
+        assert_eq!(slot_info.j, 0);
+        assert_eq!(slot_info.phase, Phase::Stop);
+        assert!(!slot_info.signed);
+        assert!(!slot_info.aggregated);
+        assert!(slot_info.precommits.is_empty());
+        assert!(slot_info.noncommits.is_empty());
+    }
+
+    #[test]
+    fn slot_info_next_test() {
+        let mut slot_info = SlotInfo::new();
+        slot_info.phase = Phase::Second;
+        slot_info.signed = true;
+        slot_info.aggregated = true;
+        slot_info.noncommits.push(Commit {
+            typ: CommitType::Noncommit.into(),
+            i: 0,
+            j: 0,
+            msg: "test".to_owned().into_bytes(),
+            public_key: "dummy key".to_owned().into_bytes(),
+            signature: "dummy signature".to_owned().into_bytes(),
+            aggregated: false,
+            signer_id: 0,
+        });
+
+        slot_info.next();
+        assert_eq!(slot_info.i, 1);
+        assert_eq!(slot_info.phase, Phase::First);
+        assert!(!slot_info.signed);
+        assert!(!slot_info.aggregated);
+        assert!(slot_info.noncommits.is_empty());
+    }
+}
