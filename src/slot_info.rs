@@ -32,15 +32,7 @@ pub struct SlotInfo {
 
 impl SlotInfo {
     pub fn new() -> Self {
-        Self {
-            i: 0,
-            j: 0,
-            phase: Phase::Stop,
-            signed: false,
-            aggregated: false,
-            precommits: Vec::new(),
-            noncommits: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn next(&mut self) {
