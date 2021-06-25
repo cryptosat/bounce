@@ -9,6 +9,7 @@ use tokio::time::{interval, interval_at, Instant};
 use tonic::{transport::Server, Request, Response, Status};
 
 pub struct CubesatInfo {
+    id: u32,
     _handle: tokio::task::JoinHandle<()>,
     request_tx: mpsc::Sender<Commit>,
 }
@@ -55,18 +56,19 @@ impl SpaceStation {
 
         let mut cubesat_infos = Vec::new();
 
-        for idx in 0..num_cubesats {
+        for id in 0..num_cubesats {
             let timer_rx = timer_tx.subscribe();
             let (request_tx, request_rx) = mpsc::channel(25);
 
             let result_tx = result_tx.clone();
             let handle = tokio::spawn(async move {
                 let mut cubesat =
-                    Cubesat::new(idx as usize, num_cubesats, result_tx, request_rx, timer_rx);
+                    Cubesat::new(id as usize, num_cubesats, result_tx, request_rx, timer_rx);
                 cubesat.run().await;
             });
 
             cubesat_infos.push(CubesatInfo {
+                id,
                 _handle: handle,
                 request_tx,
             });
@@ -97,13 +99,16 @@ impl BounceSatellite for SpaceStation {
 
     // Sending back can also be managed by a separate thread.
     async fn bounce(&self, request: Request<Commit>) -> Result<Response<Commit>, Status> {
-        info!("Got a request: {:?}", request);
+        info!("Space Station\tReceived a request: {:?}", request);
 
         let commit: Commit = request.into_inner();
 
         for cubesat_info in &self.cubesat_infos {
             if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
-                info!("failed to send to a cubesat");
+                info!(
+                    "Space Station\tFailed to send a request to Bounce Unit {}",
+                    cubesat_info.id
+                );
             }
         }
 
@@ -124,7 +129,7 @@ impl BounceSatellite for SpaceStation {
                 Some(precommit) => {
                     if precommit.aggregated {
                         info!(
-                            "received aggregated signature from unit {}",
+                            "Space Station\tReceived an aggregated signature from Bounce Unit {}",
                             precommit.signer_id
                         );
                         // TODO: Change this to use SlotInfo instead of this variable. It turns
@@ -136,11 +141,17 @@ impl BounceSatellite for SpaceStation {
                             return Ok(Response::new(precommit));
                         }
                     } else {
-                        info!("received signature, just broadcast");
+                        info!(
+                            "Space Station\tReceived a single signature from Bounce Unit {}",
+                            precommit.signer_id
+                        );
                         // TODO: Do not send to the cubesat that has sent this precommit.
                         for cubesat_info in &self.cubesat_infos {
                             if cubesat_info.request_tx.send(commit.clone()).await.is_err() {
-                                info!("failed to send to a cubesat");
+                                info!(
+                                    "Space Station\tFailed to send a request to Bounce Unit {}",
+                                    cubesat_info.id
+                                );
                             }
                         }
                     }
