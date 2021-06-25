@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = BounceSatelliteClient::connect(dst).await?;
 
     let msg = chrono::Utc::now().to_rfc2822();
-    info!("Message to send: {}", msg);
+    info!("Ground Station\tSending message: {}", msg);
 
     let mut rng = thread_rng();
     let ground_station_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
@@ -88,6 +88,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .verify(&response.signature, &msg.as_bytes(), &response.public_key)
         .unwrap();
 
-    info!("Verified the message was signed by the cubesat.");
+    info!("Ground Station\tVerified that the message was signed by the flock.");
     Ok(())
 }
