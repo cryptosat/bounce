@@ -48,18 +48,14 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) 
 }
 
 impl SpaceStation {
-    pub fn new(bounce_config: BounceConfig) -> SpaceStation {
+    pub fn new(num_cubesats: u32, timer_tx: &broadcast::Sender<Phase>) -> SpaceStation {
         let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
 
-        let num_cubesats = bounce_config.num_cubesats;
         let mut cubesat_infos = Vec::new();
 
-        // Initialized to Stop
-        let (timer_tx, _timer_rx) = broadcast::channel(15);
-
-        for idx in 0..bounce_config.num_cubesats {
+        for idx in 0..num_cubesats {
             let timer_rx = timer_tx.subscribe();
             let (request_tx, request_rx) = mpsc::channel(25);
 
@@ -75,10 +71,6 @@ impl SpaceStation {
                 request_tx,
             });
         }
-
-        tokio::spawn(async move {
-            timer(timer_tx, bounce_config).await;
-        });
 
         let last_slot = Mutex::new(0);
 
@@ -135,6 +127,9 @@ impl BounceSatellite for SpaceStation {
                             "received aggregated signature from unit {}",
                             precommit.signer_id
                         );
+                        // TODO: Change this to use SlotInfo instead of this variable. It turns
+                        // out that this information has to be kept somewhere in the
+                        // space station too, in addition to among cubesats.
                         let mut idx = self.last_slot.lock().await;
                         if *idx < precommit.i {
                             *idx = precommit.i;
@@ -213,7 +208,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         phase2_duration: 4,
     };
 
-    let comms_hub = SpaceStation::new(bounce_config);
+    // Initialized to Stop
+    let (timer_tx, _timer_rx) = broadcast::channel(15);
+
+    let comms_hub = SpaceStation::new(bounce_config.num_cubesats, &timer_tx);
+
+    tokio::spawn(async move {
+        timer(timer_tx, bounce_config).await;
+    });
 
     // This installs a BounceSatelliteServer service.
     // Question: could this actually successfully make RPCs over unreliable connections between

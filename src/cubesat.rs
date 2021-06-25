@@ -1,57 +1,10 @@
 use crate::commit::CommitType;
-use crate::{supermajority, Commit};
+use crate::{supermajority, Commit, Phase, SlotInfo};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use log::info;
 use rand::{thread_rng, Rng};
 use tokio::sync::{broadcast, mpsc};
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Phase {
-    Stop,
-    First,
-    Second,
-    Third,
-}
-
-#[derive(Clone, Debug)]
-pub struct SlotInfo {
-    // Index of current slot
-    i: u32,
-    // The index of last committed slot.
-    j: u32,
-    phase: Phase,
-    // Whether this cubesat has signed a precommit or non-commit for current slot
-    signed: bool,
-    // Whether this cubesat has aggregated signatures of at least supermajority of num_cubesats
-    aggregated: bool,
-    // (id, signature) of precommtis or noncommits received for this slot.
-    precommits: Vec<Commit>,
-    noncommits: Vec<Commit>,
-}
-
-impl SlotInfo {
-    fn new() -> Self {
-        Self {
-            i: 0,
-            j: 0,
-            phase: Phase::Stop,
-            signed: false,
-            aggregated: false,
-            precommits: Vec::new(),
-            noncommits: Vec::new(),
-        }
-    }
-
-    fn next(&mut self) {
-        self.i += 1;
-        self.phase = Phase::First;
-        self.signed = false;
-        self.aggregated = false;
-        self.precommits.clear();
-        self.noncommits.clear();
-    }
-}
 
 /// Bounce Unit invariants
 /// 1. A Bounce unit will never send a precommit or non-commit if it has already sent a precommit

@@ -5,6 +5,8 @@ use log4rs::config::{Appender, Config, Root};
 
 pub use cubesat::*;
 pub mod cubesat;
+pub use slot_info::*;
+pub mod slot_info;
 
 tonic::include_proto!("bounce"); // The string specified here must match the proto package name
 
