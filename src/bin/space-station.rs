@@ -126,24 +126,24 @@ impl BounceSatellite for SpaceStation {
 
         loop {
             match receiver.recv().await {
-                Some(precommit) => {
-                    if precommit.aggregated {
+                Some(commit) => {
+                    if commit.aggregated {
                         info!(
                             "Space Station\tReceived an aggregated signature from Bounce Unit {}",
-                            precommit.signer_id
+                            commit.signer_id
                         );
                         // TODO: Change this to use SlotInfo instead of this variable. It turns
                         // out that this information has to be kept somewhere in the
                         // space station too, in addition to among cubesats.
                         let mut idx = self.last_slot.lock().await;
-                        if *idx < precommit.i {
-                            *idx = precommit.i;
-                            return Ok(Response::new(precommit));
+                        if *idx < commit.i {
+                            *idx = commit.i;
+                            return Ok(Response::new(commit));
                         }
                     } else {
                         info!(
                             "Space Station\tReceived a single signature from Bounce Unit {}",
-                            precommit.signer_id
+                            commit.signer_id
                         );
                         // TODO: Do not send to the cubesat that has sent this precommit.
                         for cubesat_info in &self.cubesat_infos {
