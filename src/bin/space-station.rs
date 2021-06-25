@@ -17,12 +17,13 @@ pub struct CubesatInfo {
 pub struct SpaceStation {
     // A channel to receive responses from Cubesats
     result_rx: Mutex<mpsc::Receiver<Commit>>,
-
+    // The last slot index for which this Space station responded.
     last_slot: Mutex<u32>,
 
     cubesat_infos: Vec<CubesatInfo>,
 }
 
+// Timer thread which brodacsts phase transitions.
 async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) {
     let slot_duration = Duration::from_secs(bounce_config.slot_duration as u64);
     let start = Instant::now();
@@ -111,16 +112,6 @@ impl BounceSatellite for SpaceStation {
                 );
             }
         }
-
-        // let mut signatures = Vec::new();
-        // let mut public_keys = Vec::new();
-
-        // Not sure what kind of error handling needs to happen here.
-        // self.broadcast_tx.send(cubesat_request).unwrap();
-
-        // After broadcastingd the request, now the communications hub will wait for 10 seconds.
-        // If the cubesats don't produce either precommit or non commit within that time frame,
-        // it will just return non-commit.
 
         let mut receiver = self.result_rx.lock().await;
 
