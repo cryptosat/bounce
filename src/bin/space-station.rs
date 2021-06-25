@@ -127,6 +127,9 @@ impl BounceSatellite for SpaceStation {
                             "received aggregated signature from unit {}",
                             precommit.signer_id
                         );
+                        // TODO: Change this to use SlotInfo instead of this variable. It turns
+                        // out that this information has to be kept somewhere in the
+                        // space station too, in addition to among cubesats.
                         let mut idx = self.last_slot.lock().await;
                         if *idx < precommit.i {
                             *idx = precommit.i;
