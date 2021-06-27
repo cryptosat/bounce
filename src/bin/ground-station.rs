@@ -82,12 +82,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let request = tonic::Request::new(precommit);
 
+    let start = chrono::Utc::now();
+
     let response = client.bounce(request).await?.into_inner();
+
+    let end = chrono::Utc::now();
 
     let _ = Bn256
         .verify(&response.signature, &msg.as_bytes(), &response.public_key)
         .unwrap();
 
-    info!("Ground Station\tVerified that the message was signed by the flock.");
+    info!(
+        "Ground Station\tVerified that the message was signed by the flock in {}.",
+        end - start
+    );
     Ok(())
 }
