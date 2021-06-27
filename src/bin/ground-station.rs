@@ -93,8 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     info!(
-        "Ground Station\tVerified that the message was signed by the flock in {}.",
-        end - start
+        "Ground Station\tVerified that the message was signed by the flock in {} ms.",
+        (end - start).num_milliseconds()
     );
     Ok(())
 }
