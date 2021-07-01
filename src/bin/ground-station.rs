@@ -3,7 +3,9 @@ use bls_signatures_rs::MultiSignature;
 use bounce::bounce_satellite_client::BounceSatelliteClient;
 use bounce::{commit::CommitType, configure_log, configure_log_to_file, Commit};
 use clap::{crate_authors, crate_version, App, Arg};
+use tokio::time::interval;
 use log::info;
+use std::time::Duration;
 use rand::{thread_rng, Rng};
 
 #[tokio::main]
@@ -56,38 +58,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = BounceSatelliteClient::connect(dst).await?;
 
-    let msg = chrono::Utc::now().to_rfc2822();
-    info!("Ground Station\tSending message: {}", msg);
 
-    let mut rng = thread_rng();
-    let ground_station_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-    let ground_station_public_key = Bn256
-        .derive_public_key(&ground_station_private_key)
-        .unwrap();
-    let signature = Bn256
-        .sign(&ground_station_private_key, &msg.as_bytes())
-        .unwrap();
+    let slot_duration = Duration::from_secs(10);
+    let mut slot_ticker = interval(slot_duration);
 
-    let precommit = Commit {
-        typ: CommitType::Precommit.into(),
-        i: 1,
-        j: 0,
-        msg: msg.as_bytes().to_vec(),
-        public_key: ground_station_public_key,
-        signature,
-        aggregated: false,
-        // TODO: FIXME
-        signer_id: 100,
-    };
+    for _ in 0..10 {
+        tokio::select!{
+            _ = slot_ticker.tick() => {
+                let msg = chrono::Utc::now().to_rfc2822();
+                info!("Ground Station\tSending message: {}", msg);
 
-    let request = tonic::Request::new(precommit);
+                let mut rng = thread_rng();
+                let ground_station_private_key: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+                let ground_station_public_key = Bn256
+                    .derive_public_key(&ground_station_private_key)
+                    .unwrap();
+                let signature = Bn256
+                    .sign(&ground_station_private_key, &msg.as_bytes())
+                    .unwrap();
 
-    let response = client.bounce(request).await?.into_inner();
+                let precommit = Commit {
+                    typ: CommitType::Precommit.into(),
+                    i: 1,
+                    j: 0,
+                    msg: msg.as_bytes().to_vec(),
+                    public_key: ground_station_public_key,
+                    signature,
+                    aggregated: false,
+                    // TODO: FIXME
+                    signer_id: 100,
+                };
 
-    let _ = Bn256
-        .verify(&response.signature, &msg.as_bytes(), &response.public_key)
-        .unwrap();
+                let request = tonic::Request::new(precommit);
 
-    info!("Ground Station\tVerified that the message was signed by the flock.");
+                let start = chrono::Utc::now();
+
+                let response = client.bounce(request).await?.into_inner();
+
+                let end = chrono::Utc::now();
+
+                let _ = Bn256
+                    .verify(&response.signature, &msg.as_bytes(), &response.public_key)
+                    .unwrap();
+
+                info!(
+                    "Ground Station\tVerified that the message was signed by the flock in {} ms.",
+                    (end - start).num_milliseconds()
+                );
+            }
+        }
+    }
+
     Ok(())
 }
