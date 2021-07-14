@@ -37,3 +37,7 @@ path = "src/bin/ground-station.rs"
 [[bin]]
 name = "space-station"
 path = "src/bin/space-station.rs"
+
+[[bin]]
+name = "experiment"
+path = "src/bin/experiment.rs"
