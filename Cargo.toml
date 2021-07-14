@@ -19,6 +19,8 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tonic = "0.4"
 
 [dev-dependencies]
+bytes = "1.0.0"
+futures = { version = "0.3.0", features = ["thread-pool"] }
 hex = "0.4.2"
 hex-literal = "0.3.1"
 num-bigint = "0.2.6"
@@ -26,6 +28,7 @@ openssl = "0.10"
 openssl-sys = "0.9"
 pkcs11 = "0.5.0"
 sha3 = "0.9.1"
+tokio-util = { version = "0.6.3", features = ["full"] }
 
 [build-dependencies]
 tonic-build = "0.4"
