@@ -19,8 +19,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .default_value("50051"),
         ).get_matches();
 
-    let addr = matches.value_of("addr").unwrap();
-    let port = matches.value_of("port").unwrap();
+    let _addr = matches.value_of("addr").unwrap();
+    let _port = matches.value_of("port").unwrap();
 
     Ok(())
 }
