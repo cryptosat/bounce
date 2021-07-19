@@ -56,8 +56,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let mut dst = [0u8; 4];
                 dst.clone_from_slice(&buf[0..4]);
                 let val = i32::from_be_bytes(dst);
+                let output = val.to_string() + "\n";
                 io::stdout()
-                    .write_all(val.to_string().as_bytes())
+                    .write_all(output.as_bytes())
                     .await
                     .expect("Failed to write data to stdout");
             }
