@@ -49,12 +49,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .await
                     .expect("failed to read data from socket");
 
-                if n > 0 {
-                    io::stdout()
-                        .write_all(&buf)
-                        .await
-                        .expect("Failed to write data to stdout");
+                if n == 0 {
+                    return;
                 }
+                io::stdout()
+                    .write_all(&buf)
+                    .await
+                    .expect("Failed to write data to stdout");
             }
         });
     }
