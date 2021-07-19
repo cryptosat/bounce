@@ -11,7 +11,7 @@ use tokio::time;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let server_addr = "127.0.0.1.8080";
+    let server_addr = "127.0.0.1:5005";
     let server_addr = server_addr.parse::<SocketAddr>()?;
 
     // Listen for anything that's sent from the server.
@@ -28,14 +28,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut i: i32 = 0;
         loop {
             interval.tick().await;
-            let mut stream = TcpStream::connect(server_addr)
-                .await
-                .expect("failed to connect to the server");
-            i += 1;
-            stream
-                .write_all(&i.to_be_bytes())
-                .await
-                .expect("failed to write data to the stream");
+            if let Ok(mut stream) = TcpStream::connect(server_addr).await {
+                i += 1;
+                // println!("value i: {}", i);
+                stream
+                    .write_all(&i.to_be_bytes())
+                    .await
+                    .expect("failed to write data to the stream");
+            }
         }
     });
 
@@ -52,8 +52,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if n == 0 {
                     return;
                 }
+                // println!("received {} bytes", n);
+                let mut dst = [0u8; 4];
+                dst.clone_from_slice(&buf[0..4]);
+                let val = i32::from_be_bytes(dst);
                 io::stdout()
-                    .write_all(&buf)
+                    .write_all(val.to_string().as_bytes())
                     .await
                     .expect("Failed to write data to stdout");
             }

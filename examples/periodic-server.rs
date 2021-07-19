@@ -4,7 +4,6 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
@@ -13,11 +12,15 @@ use tokio::time;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let client_addr = "127.0.0.1:5001";
-    let client_addr = client_addr.parse::<SocketAddr>()?;
+    let client_addr = "127.0.0.1:50051";
+    let client_addr = client_addr
+        .parse::<SocketAddr>()
+        .expect("Cannot parse the client address");
 
-    let listen_addr = "127.0.0.1.8080";
-    let listen_addr = listen_addr.parse::<SocketAddr>()?;
+    let listen_addr = "127.0.0.1:5005";
+    let listen_addr = listen_addr
+        .parse::<SocketAddr>()
+        .expect("Cannot parse the listening address.");
 
     let listener = TcpListener::bind(&listen_addr).await?;
     println!("Listening on: {}", listen_addr);
@@ -29,14 +32,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(async move {
         loop {
             interval.tick().await;
-            let mut stream = TcpStream::connect(client_addr)
-                .await
-                .expect("failed to connect to the client");
-            let val = *cnt3.lock().await;
-            stream
-                .write_all(&val.to_be_bytes())
-                .await
-                .expect("failed to write data to the stream");
+            if let Ok(mut stream) = TcpStream::connect(client_addr).await {
+                let val = *cnt3.lock().await;
+                // println!("sending value: {}", val);
+                stream
+                    .write_all(&val.to_be_bytes())
+                    .await
+                    .expect("failed to write data to the stream");
+            }
         }
     });
 
@@ -67,6 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if received {
                 let mut lock = cnt2.lock().await;
                 *lock += 1;
+                // println!("incremented cnt to {}", *lock);
             }
         });
     }
