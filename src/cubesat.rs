@@ -135,16 +135,18 @@ impl Cubesat {
 
     async fn process(&mut self, commit: Commit) {
         match self.failure_mode {
-            FailureMode::Honest => {
-                self.process_honest(commit).await
-            }
-            FailureMode::FailArbitrary => {
-
-            }
-            FailureMode::FailStop => {
-
-            }
+            FailureMode::Honest => self.process_honest(commit).await,
+            FailureMode::FailArbitrary => self.process_fail_arbitrary(commit).await,
+            FailureMode::FailStop => self.process_fail_stop(commit).await,
         }
+    }
+
+    async fn process_fail_arbitrary(&mut self, _commit: Commit) {
+
+    }
+
+    async fn process_fail_stop(&mut self, _commit: Commit) {
+        // Does nothing
     }
 
     async fn process_honest(&mut self, mut commit: Commit) {
