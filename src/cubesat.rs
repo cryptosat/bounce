@@ -141,9 +141,7 @@ impl Cubesat {
         }
     }
 
-    async fn process_fail_arbitrary(&mut self, _commit: Commit) {
-
-    }
+    async fn process_fail_arbitrary(&mut self, _commit: Commit) {}
 
     async fn process_fail_stop(&mut self, _commit: Commit) {
         // Does nothing
@@ -279,7 +277,7 @@ mod tests {
         let (request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
         c.slot_info.phase = Phase::First;
 
         tokio::spawn(async move {
@@ -342,7 +340,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::First;
 
@@ -376,7 +374,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -443,7 +441,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -508,7 +506,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -547,7 +545,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -585,7 +583,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
         let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
@@ -635,7 +633,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx);
+        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
