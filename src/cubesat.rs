@@ -6,6 +6,15 @@ use log::info;
 use rand::{thread_rng, Rng};
 use tokio::sync::{broadcast, mpsc};
 
+pub enum FailureMode {
+    // Follows the protocol and has no impostor.
+    Honest = 1,
+    // Sends precommit / noncommit messages at an arbitrary time.
+    FailArbitrary,
+    // Does not send precommit / noncommit messages at all.
+    FailStop,
+}
+
 /// Bounce Unit invariants
 /// 1. A Bounce unit will never send a precommit or non-commit if it has already sent a precommit
 /// or non-commit
@@ -30,6 +39,8 @@ pub struct Cubesat {
 
     // Receiver for phase transitions.
     timer_rx: broadcast::Receiver<Phase>,
+
+    failure_mode: FailureMode,
 }
 
 impl Cubesat {
@@ -39,6 +50,7 @@ impl Cubesat {
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
         timer_rx: broadcast::Receiver<Phase>,
+        failure_mode: FailureMode,
     ) -> Self {
         let mut rng = thread_rng();
 
@@ -56,6 +68,7 @@ impl Cubesat {
             result_tx,
             request_rx,
             timer_rx,
+            failure_mode,
         }
     }
 
@@ -120,7 +133,21 @@ impl Cubesat {
         commit
     }
 
-    async fn process(&mut self, mut commit: Commit) {
+    async fn process(&mut self, commit: Commit) {
+        match self.failure_mode {
+            FailureMode::Honest => {
+                self.process_honest(commit).await
+            }
+            FailureMode::FailArbitrary => {
+
+            }
+            FailureMode::FailStop => {
+
+            }
+        }
+    }
+
+    async fn process_honest(&mut self, mut commit: Commit) {
         if self.public_key == commit.public_key {
             return;
         }
