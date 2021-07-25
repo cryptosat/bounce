@@ -148,10 +148,11 @@ impl Cubesat {
     }
 
     async fn process_honest(&mut self, mut commit: Commit) {
+        // Ignore the commit that was signed by itself.
         if self.public_key == commit.public_key {
             return;
         }
-
+                // If this
         if self.slot_info.phase == Phase::Stop {
             return;
         }
