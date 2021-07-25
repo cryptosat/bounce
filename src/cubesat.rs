@@ -134,25 +134,11 @@ impl Cubesat {
     }
 
     async fn process(&mut self, commit: Commit) {
-        match self.failure_mode {
-            FailureMode::Honest => self.process_honest(commit).await,
-            FailureMode::FailArbitrary => self.process_fail_arbitrary(commit).await,
-            FailureMode::FailStop => self.process_fail_stop(commit).await,
-        }
-    }
-
-    async fn process_fail_arbitrary(&mut self, _commit: Commit) {}
-
-    async fn process_fail_stop(&mut self, _commit: Commit) {
-        // Does nothing
-    }
-
-    async fn process_honest(&mut self, mut commit: Commit) {
         // Ignore the commit that was signed by itself.
         if self.public_key == commit.public_key {
             return;
         }
-                // If this
+
         if self.slot_info.phase == Phase::Stop {
             return;
         }
@@ -171,6 +157,24 @@ impl Cubesat {
             return;
         }
 
+        match self.failure_mode {
+            FailureMode::Honest => self.process_honest(commit).await,
+            FailureMode::FailArbitrary => self.process_fail_arbitrary(commit).await,
+            FailureMode::FailStop => self.process_fail_stop(commit).await,
+        }
+    }
+
+    async fn process_fail_arbitrary(&mut self, _commit: Commit) {
+        // Flip a coin to determine whether to send precommit or a noncommit.
+
+        // TODO(taegyunk): Update to send the commit at a random time.
+    }
+
+    async fn process_fail_stop(&mut self, _commit: Commit) {
+        // Does nothing
+    }
+
+    async fn process_honest(&mut self, mut commit: Commit) {
         match self.slot_info.phase {
             Phase::First => {
                 // Phase 1 only handles precommits
