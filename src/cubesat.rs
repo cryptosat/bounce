@@ -164,8 +164,35 @@ impl Cubesat {
         }
     }
 
-    async fn process_fail_arbitrary(&mut self, _commit: Commit) {
+    async fn process_fail_arbitrary(&mut self, mut commit: Commit) {
         // Flip a coin to determine whether to send precommit or a noncommit.
+        let typ = if thread_rng().gen::<f32>() < 0.5 {
+            CommitType::Precommit
+        } else {
+            CommitType::Noncommit
+        };
+
+        // Overwrite the commit type.
+        commit.set_typ(typ);
+
+        if !self.slot_info.signed {
+            commit = self.sign_and_broadcast(commit).await;
+        }
+
+        // Even though this is fail arbitrary, it will still follow the rest of the protocol, i.e.
+        // keeping track of the number of precommits or noncommits.
+        // TODO(taegyunk): Come up with a more reasonable scenario for this.
+        if typ == CommitType::Precommit {
+            self.slot_info.precommits.push(commit.clone());
+        } else {
+            self.slot_info.noncommits.push(commit.clone());
+        }
+
+        if self.slot_info.precommits.len() >= supermajority(self.num_cubesats as usize) {
+            self.aggregate_and_broadcast(commit).await;
+        } else if self.slot_info.noncommits.len() >= supermajority(self.num_cubesats as usize) {
+            self.aggregate_and_broadcast(commit).await;
+        }
 
         // TODO(taegyunk): Update to send the commit at a random time.
     }
