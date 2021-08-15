@@ -1,5 +1,7 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
-use bounce::{configure_log, configure_log_to_file, BounceConfig, Commit, Cubesat, Phase};
+use bounce::{
+    configure_log, configure_log_to_file, BounceConfig, Commit, Cubesat, FailureMode, Phase,
+};
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::Cubesat;
 use log::info;
@@ -63,8 +65,14 @@ impl SpaceStation {
 
             let result_tx = result_tx.clone();
             let handle = tokio::spawn(async move {
-                let mut cubesat =
-                    Cubesat::new(id as usize, num_cubesats, result_tx, request_rx, timer_rx);
+                let mut cubesat = Cubesat::new(
+                    id as usize,
+                    num_cubesats,
+                    result_tx,
+                    request_rx,
+                    timer_rx,
+                    FailureMode::Honest,
+                );
                 cubesat.run().await;
             });
 

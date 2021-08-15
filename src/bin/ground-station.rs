@@ -3,10 +3,10 @@ use bls_signatures_rs::MultiSignature;
 use bounce::bounce_satellite_client::BounceSatelliteClient;
 use bounce::{commit::CommitType, configure_log, configure_log_to_file, Commit};
 use clap::{crate_authors, crate_version, App, Arg};
-use tokio::time::interval;
 use log::info;
-use std::time::Duration;
 use rand::{thread_rng, Rng};
+use std::time::Duration;
+use tokio::time::interval;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -58,12 +58,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = BounceSatelliteClient::connect(dst).await?;
 
-
     let slot_duration = Duration::from_secs(10);
     let mut slot_ticker = interval(slot_duration);
 
     for _ in 0..10 {
-        tokio::select!{
+        tokio::select! {
             _ = slot_ticker.tick() => {
                 let msg = chrono::Utc::now().to_rfc2822();
                 info!("Ground Station\tSending message: {}", msg);
