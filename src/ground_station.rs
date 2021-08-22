@@ -1,4 +1,4 @@
-use crate::{BounceRequest, Phase, SlotInfo};
+use crate::{supermajority, BounceRequest, Phase, SlotInfo};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use log::info;
@@ -54,7 +54,9 @@ impl GroundStation {
         }
     }
 
-    fn sign(&self) {}
+    fn sign(&self, msg: &[u8]) -> Vec<u8> {
+        Bn256.sign(&self.private_key, msg).unwrap()
+    }
 
     fn aggregate(&self) {}
 
@@ -80,6 +82,17 @@ impl GroundStation {
                 Some(request) = self.request_rx.recv() => {
                     if request.public_keys.contains(&self.public_key) {
                         return;
+                    }
+                    // FIXME: not sure how to make this mutable, without this line.
+                    let mut request = request;
+                    // Sign
+                    request.signatures.push(self.sign(&request.msg));
+                    request.public_keys.push(self.public_key.clone());
+
+                    if request.signatures.len() >= supermajority(self.num_stations as usize) {
+                        // Create precommit
+                        // Broadcast it to all other stations
+                        // Send it to the space station
                     }
                 }
             }
