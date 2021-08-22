@@ -23,7 +23,6 @@ impl GroundStation {
         station_id: u32,
         station_type: StationType,
         timer_rx: broadcast::Receiver<Phase>,
-
     ) -> GroundStation {
         let mut rng = thread_rng();
 
