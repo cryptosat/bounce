@@ -78,7 +78,7 @@ impl GroundStation {
                     // Handle Stop for breaking out of this run loop.
                 }
                 Some(request) = self.request_rx.recv() => {
-                    if request.signatures.contains(&self.public_key) {
+                    if request.public_keys.contains(&self.public_key) {
                         return;
                     }
                 }
