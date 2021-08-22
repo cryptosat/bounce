@@ -7,6 +7,7 @@ pub use cubesat::*;
 pub mod cubesat;
 pub use slot_info::*;
 pub mod slot_info;
+pub mod ground_station;
 
 tonic::include_proto!("bounce"); // The string specified here must match the proto package name
 

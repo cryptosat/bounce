@@ -1,4 +1,8 @@
-use crate::{supermajority, Commit, Phase, SlotInfo};
+use crate::{BounceRequest, Phase, SlotInfo};
+use bls_signatures_rs::bn256::Bn256;
+use bls_signatures_rs::MultiSignature;
+use log::info;
+use rand::{thread_rng, Rng};
 use tokio::sync::{broadcast, mpsc};
 
 pub enum StationType {
@@ -19,6 +23,8 @@ pub struct GroundStation {
     slot_info: SlotInfo,
     // Receiver for phase transitions.
     timer_rx: broadcast::Receiver<Phase>,
+
+    request_rx: mpsc::Receiver<BounceRequest>,
 }
 
 impl GroundStation {
@@ -27,6 +33,7 @@ impl GroundStation {
         station_type: StationType,
         num_stations: u32,
         timer_rx: broadcast::Receiver<Phase>,
+        request_rx: mpsc::Receiver<BounceRequest>,
     ) -> GroundStation {
         let mut rng = thread_rng();
 
@@ -41,7 +48,9 @@ impl GroundStation {
             num_stations,
             public_key,
             private_key,
+            slot_info,
             timer_rx,
+            request_rx,
         }
     }
 
