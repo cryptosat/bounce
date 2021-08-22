@@ -66,8 +66,7 @@ impl GroundStation {
             // Receive a message from the space station
             tokio::select! {
                 Ok(phase) = self.timer_rx.recv() => {
-                    match phase {
-                        Phase::First => {
+                    if phase == Phase::First {
                             self.slot_info.next();
                             info!(
                                 "Slot {}\tGround Station {}",
@@ -75,7 +74,6 @@ impl GroundStation {
                                 self.station_id,
                             );
                         }
-                        _ => {
                             // For the rest we simply ignore.
                             // Handle Stop for breaking out of this run loop.
                         }
