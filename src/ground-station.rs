@@ -10,6 +10,9 @@ pub struct GroundStation {
     pub station_id: u32,
     pub station_type: StationType,
 
+    // Number of all ground stations including this one.
+    num_stations: u32,
+
     public_key: Vec<u8>,
     private_key: Vec<u8>,
 
@@ -22,6 +25,7 @@ impl GroundStation {
     pub fn new(
         station_id: u32,
         station_type: StationType,
+        num_stations: u32,
         timer_rx: broadcast::Receiver<Phase>,
     ) -> GroundStation {
         let mut rng = thread_rng();
@@ -34,6 +38,7 @@ impl GroundStation {
         GroundStation {
             station_id,
             station_type,
+            num_stations,
             public_key,
             private_key,
             timer_rx,
