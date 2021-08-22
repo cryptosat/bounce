@@ -38,4 +38,16 @@ fn main() {
     // Check whether the aggregated signature corresponds to the aggregated public key
     let _ = Bn256.verify(&agg_sig, &message, &agg_pub_key).unwrap();
     println!("Successful verification");
+
+    let secret_key_3: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let public_key_3 = Bn256.derive_public_key(&secret_key_3).unwrap();
+    let sig_3 = Bn256.sign(&secret_key_3, &message).unwrap();
+
+    let agg_pub_key_2 = Bn256
+        .aggregate_public_keys(&[&agg_pub_key, &public_key_3])
+        .unwrap();
+    let agg_sig_2 = Bn256.aggregate_signatures(&[&agg_sig, &sig_3]).unwrap();
+
+    let _ = Bn256.verify(&agg_sig_2, &message, &agg_pub_key_2).unwrap();
+    println!("Successful verification");
 }
