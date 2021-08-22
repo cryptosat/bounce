@@ -23,6 +23,15 @@ message Commit {
   uint32 signer_id = 8;
 }
 
+message BounceRequest {
+    // The original message.
+    bytes msg = 1;
+    // Signature obtained by signing the msg using the following public_key.
+    bytes signature = 2;
+    // Public key by which signed the signature
+    bytes public_key = 3;
+}
+
 // message BounceRequest { bytes msg = 1; }
 
 // message BounceResponse {
