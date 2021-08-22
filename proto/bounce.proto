@@ -27,9 +27,9 @@ message BounceRequest {
     // The original message.
     bytes msg = 1;
     // Signature obtained by signing the msg using the following public_key.
-    repeated bytes signature = 2;
+    repeated bytes signatures = 2;
     // Public key by which signed the signature
-    repeated bytes public_key = 3;
+    repeated bytes public_keys = 3;
     // number of signers
 }
 

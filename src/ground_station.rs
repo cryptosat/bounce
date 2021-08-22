@@ -67,16 +67,19 @@ impl GroundStation {
             tokio::select! {
                 Ok(phase) = self.timer_rx.recv() => {
                     if phase == Phase::First {
-                            self.slot_info.next();
+                        self.slot_info.next();
                             info!(
                                 "Slot {}\tGround Station {}",
                                 self.slot_info.i,
                                 self.station_id,
                             );
-                        }
-                            // For the rest we simply ignore.
-                            // Handle Stop for breaking out of this run loop.
-                        }
+                    }
+                    // For the rest we simply ignore.
+                    // Handle Stop for breaking out of this run loop.
+                }
+                Some(request) = self.request_rx.recv() => {
+                    if request.signatures.contains(&self.public_key) {
+                        return;
                     }
                 }
             }
