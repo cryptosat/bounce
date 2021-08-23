@@ -27,6 +27,8 @@ pub struct GroundStation {
     request_rx: mpsc::Receiver<BounceRequest>,
 
     commit_tx: mpsc::Sender<Commit>,
+
+    commit_rx: broadcast::Receiver<Commit>,
 }
 
 impl GroundStation {
@@ -37,6 +39,7 @@ impl GroundStation {
         timer_rx: broadcast::Receiver<Phase>,
         request_rx: mpsc::Receiver<BounceRequest>,
         commit_tx: mpsc::Sender<Commit>,
+        commit_rx: broadcast::Receiver<Commit>,
     ) -> GroundStation {
         let mut rng = thread_rng();
 
@@ -55,6 +58,7 @@ impl GroundStation {
             timer_rx,
             request_rx,
             commit_tx,
+            commit_rx,
         }
     }
 
@@ -121,6 +125,11 @@ impl GroundStation {
                         // Create precommit
                         let commit = self.aggregate(&request);
                         self.commit_tx.send(commit).await.unwrap();
+                    }
+                }
+                Ok(commit) = self.commit_rx.recv() => {
+                    if commit.typ() == CommitType::Precommit {
+                        self.slot_info.j = commit.i;
                     }
                 }
             }
