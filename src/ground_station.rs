@@ -1,4 +1,4 @@
-use crate::{supermajority, BounceRequest, Phase, SlotInfo};
+use crate::{commit::CommitType, supermajority, BounceRequest, Commit, Phase, SlotInfo};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use log::info;
@@ -25,6 +25,8 @@ pub struct GroundStation {
     timer_rx: broadcast::Receiver<Phase>,
 
     request_rx: mpsc::Receiver<BounceRequest>,
+
+    commit_tx: mpsc::Sender<Commit>,
 }
 
 impl GroundStation {
@@ -34,6 +36,7 @@ impl GroundStation {
         num_stations: u32,
         timer_rx: broadcast::Receiver<Phase>,
         request_rx: mpsc::Receiver<BounceRequest>,
+        commit_tx: mpsc::Sender<Commit>,
     ) -> GroundStation {
         let mut rng = thread_rng();
 
@@ -51,6 +54,7 @@ impl GroundStation {
             slot_info,
             timer_rx,
             request_rx,
+            commit_tx,
         }
     }
 
@@ -58,9 +62,33 @@ impl GroundStation {
         Bn256.sign(&self.private_key, msg).unwrap()
     }
 
-    fn aggregate(&self) {}
+    fn aggregate(&self, bounce_request: &BounceRequest) -> Commit {
+        let sig_refs: Vec<&[u8]> = bounce_request
+            .signatures
+            .iter()
+            .map(|sig| sig.as_ref())
+            .collect();
+        let aggregate_signature = Bn256.aggregate_signatures(&sig_refs).unwrap();
 
-    async fn broadcast(&self) {}
+        let public_key_refs: Vec<&[u8]> = bounce_request
+            .public_keys
+            .iter()
+            .map(|key| key.as_ref())
+            .collect();
+        let aggregate_public_key = Bn256.aggregate_public_keys(&public_key_refs).unwrap();
+
+        Commit {
+            typ: CommitType::Precommit.into(),
+            i: self.slot_info.i,
+            j: self.slot_info.j,
+            msg: bounce_request.msg.clone(),
+            public_key: aggregate_public_key,
+            signature: aggregate_signature,
+            aggregated: false,
+            // TODO: FIXME.
+            signer_id: 100,
+        }
+    }
 
     pub async fn run(&mut self) {
         loop {
@@ -91,8 +119,8 @@ impl GroundStation {
 
                     if request.signatures.len() >= supermajority(self.num_stations as usize) {
                         // Create precommit
-                        // Broadcast it to all other stations
-                        // Send it to the space station
+                        let commit = self.aggregate(&request);
+                        self.commit_tx.send(commit).await.unwrap();
                     }
                 }
             }
