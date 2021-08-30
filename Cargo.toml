@@ -38,8 +38,8 @@ name = "ground-station"
 path = "src/bin/ground-station.rs"
 
 [[bin]]
-name = "space-station"
-path = "src/bin/space-station.rs"
+name = "flock"
+path = "src/bin/flock.rs"
 
 [[bin]]
 name = "experiment"

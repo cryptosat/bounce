@@ -12,7 +12,7 @@ parts:
     source: https://github.com/taegyunkim/bounce.git
 
 apps:
-    space-station:
-      command: bin/space-station
+    flock:
+      command: bin/flock
     ground-station:
       command: bin/ground-station

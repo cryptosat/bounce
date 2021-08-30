@@ -16,7 +16,7 @@ pub struct BounceUnitInfo {
     request_tx: mpsc::Sender<Commit>,
 }
 
-pub struct SpaceStation {
+pub struct Flock {
     // A channel to receive responses from BounceUnits
     result_rx: Mutex<mpsc::Receiver<Commit>>,
     // The last slot index for which this Space station responded.
@@ -51,8 +51,8 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) 
     }
 }
 
-impl SpaceStation {
-    pub fn new(num_bounce_units: u32, timer_tx: &broadcast::Sender<Phase>) -> SpaceStation {
+impl Flock {
+    pub fn new(num_bounce_units: u32, timer_tx: &broadcast::Sender<Phase>) -> Flock {
         let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
@@ -94,15 +94,15 @@ impl SpaceStation {
 }
 
 #[tonic::async_trait]
-impl BounceSatellite for SpaceStation {
+impl BounceSatellite for Flock {
     // The bounce function is marked async, so whenever this function is called, we should broadcast
     // the message to sign to cubesats.
-    // broadcast channel here: SpaceStation -> BounceUnits, each cubesat needs to see messages in order
+    // broadcast channel here: Flock -> BounceUnits, each cubesat needs to see messages in order
     //  without any loss.
     //
     // Whenever the cubesat receive such request, then the cubesat signs and then sends back
     // the signature (either aggregated or single) to the comms hub.
-    // Multi-producer, single consumer channel here, cubesats to SpaceStation
+    // Multi-producer, single consumer channel here, cubesats to Flock
     //  and the comms hub needs to check whether the signature is aggregated, if it is aggregated
     //  then it needs to send it back to the ground station.
 
@@ -133,7 +133,7 @@ impl BounceSatellite for SpaceStation {
                         );
                         // TODO: Change this to use SlotInfo instead of this variable. It turns
                         // out that this information has to be kept somewhere in the
-                        // space station too, in addition to among cubesats.
+                        // flock too, in addition to among cubesats.
                         let mut idx = self.last_slot.lock().await;
                         if *idx < commit.i {
                             *idx = commit.i;
@@ -206,7 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         configure_log()?;
     } else {
         let log_dir = matches.value_of("log-dir").unwrap();
-        configure_log_to_file(log_dir, "space-station")?;
+        configure_log_to_file(log_dir, "flock")?;
     }
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;
@@ -221,7 +221,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialized to Stop
     let (timer_tx, _timer_rx) = broadcast::channel(15);
 
-    let comms_hub = SpaceStation::new(bounce_config.num_bounce_units, &timer_tx);
+    let comms_hub = Flock::new(bounce_config.num_bounce_units, &timer_tx);
 
     tokio::spawn(async move {
         timer(timer_tx, bounce_config).await;

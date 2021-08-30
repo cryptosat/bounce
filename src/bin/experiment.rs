@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // Start
 // Timer server
-// space station
+// ground station
 // flock
 // Wait for above to be ready
 // Then start the experiment

@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         configure_log()?;
     } else {
         let log_dir = matches.value_of("log-dir").unwrap();
-        configure_log_to_file(log_dir, "space-station")?;
+        configure_log_to_file(log_dir, "flock")?;
     }
 
     let dst = format!("http://{}:{}", addr, port);

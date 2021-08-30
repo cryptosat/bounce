@@ -19,23 +19,23 @@ It will produce file `.snap`, which you can use to install this project on suppo
 
 ## Binaries
 
-There are two binaries, `space-station` and `ground-station`. Simply open two terminals and run each binary in each terminal.
+There are two binaries, `flock` and `ground-station`. Simply open two terminals and run each binary in each terminal.
 
-Currently, the `ground-station` binary will send a request to space-station and
+Currently, the `ground-station` binary will send a request to flock and
 upon receiving the resposne, it will terminate.
 
-`space-station` binary runs indefinitely, so force terminate by using Ctrl-C, and
+`flock` binary runs indefinitely, so force terminate by using Ctrl-C, and
 look at the log folder for logs.
 
-### space-station
+### flock
 
 ```sh
-$> ./target/debug/space-station -h
+$> ./target/debug/flock -h
 A flock of Bounce cubesat units 0.1.0
 Taegyun Kim <k.taegyun@gmail.com>
 
 USAGE:
-    space-station [OPTIONS] [log-to-stdout]
+    flock [OPTIONS] [log-to-stdout]
 
 FLAGS:
     -h, --help             Prints help information
