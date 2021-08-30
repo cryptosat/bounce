@@ -1,28 +1,28 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{
-    configure_log, configure_log_to_file, BounceConfig, Commit, Cubesat, FailureMode, Phase,
+    configure_log, configure_log_to_file, BounceConfig, Commit, BounceUnit, FailureMode, Phase,
 };
 use clap::{crate_authors, crate_version, App, Arg};
-// use bounce::Cubesat;
+// use bounce::BounceUnit;
 use log::info;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::{interval, interval_at, Instant};
 use tonic::{transport::Server, Request, Response, Status};
 
-pub struct CubesatInfo {
+pub struct BounceUnitInfo {
     id: u32,
     _handle: tokio::task::JoinHandle<()>,
     request_tx: mpsc::Sender<Commit>,
 }
 
 pub struct SpaceStation {
-    // A channel to receive responses from Cubesats
+    // A channel to receive responses from BounceUnits
     result_rx: Mutex<mpsc::Receiver<Commit>>,
     // The last slot index for which this Space station responded.
     last_slot: Mutex<u32>,
 
-    cubesat_infos: Vec<CubesatInfo>,
+    cubesat_infos: Vec<BounceUnitInfo>,
 }
 
 // Timer thread which brodacsts phase transitions.
@@ -65,7 +65,7 @@ impl SpaceStation {
 
             let result_tx = result_tx.clone();
             let handle = tokio::spawn(async move {
-                let mut cubesat = Cubesat::new(
+                let mut cubesat = BounceUnit::new(
                     id as usize,
                     num_bounce_units,
                     result_tx,
@@ -76,7 +76,7 @@ impl SpaceStation {
                 cubesat.run().await;
             });
 
-            cubesat_infos.push(CubesatInfo {
+            cubesat_infos.push(BounceUnitInfo {
                 id,
                 _handle: handle,
                 request_tx,
@@ -97,7 +97,7 @@ impl SpaceStation {
 impl BounceSatellite for SpaceStation {
     // The bounce function is marked async, so whenever this function is called, we should broadcast
     // the message to sign to cubesats.
-    // broadcast channel here: SpaceStation -> Cubesats, each cubesat needs to see messages in order
+    // broadcast channel here: SpaceStation -> BounceUnits, each cubesat needs to see messages in order
     //  without any loss.
     //
     // Whenever the cubesat receive such request, then the cubesat signs and then sends back

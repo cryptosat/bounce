@@ -3,8 +3,8 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
-pub use cubesat::*;
-pub mod cubesat;
+pub use bounce_unit::*;
+pub mod bounce_unit;
 pub use slot_info::*;
 pub mod slot_info;
 

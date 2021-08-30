@@ -22,7 +22,7 @@ pub enum FailureMode {
 /// aggregated precommit or non-commit or has sent one.
 /// 3. A Bounce unit will never send an aggregated precommit or non-commit if it has either received
 /// an aggregated precommit or non-commit or has already sent one.
-pub struct Cubesat {
+pub struct BounceUnit {
     id: usize,
 
     // Configuration for slot
@@ -43,7 +43,7 @@ pub struct Cubesat {
     failure_mode: FailureMode,
 }
 
-impl Cubesat {
+impl BounceUnit {
     pub fn new(
         id: usize,
         num_bounce_units: u32,
@@ -59,7 +59,7 @@ impl Cubesat {
         let public_key = Bn256.derive_public_key(&private_key).unwrap();
         let slot_info = SlotInfo::new();
 
-        Cubesat {
+        BounceUnit {
             id,
             num_bounce_units,
             slot_info,
@@ -92,7 +92,7 @@ impl Cubesat {
 
     async fn aggregate_and_broadcast(&mut self, mut commit: Commit) {
         let (aggregate_signature, aggregate_public_key) =
-            Cubesat::aggregate(self.get_commits(commit.typ()));
+            BounceUnit::aggregate(self.get_commits(commit.typ()));
 
         commit.signature = aggregate_signature;
         commit.public_key = aggregate_public_key;
@@ -309,7 +309,7 @@ mod tests {
         let (request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
         c.slot_info.phase = Phase::First;
 
         tokio::spawn(async move {
@@ -372,7 +372,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::First;
 
@@ -406,7 +406,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -473,7 +473,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -538,7 +538,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -577,7 +577,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 1, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         c.slot_info.phase = Phase::Second;
 
@@ -615,7 +615,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
         let msg = format!("noncommit({}, {})", c.slot_info.j + 1, c.slot_info.i);
@@ -665,7 +665,7 @@ mod tests {
         let (_request_tx, request_rx) = mpsc::channel(15);
         let (_timer_tx, _timer_rx) = broadcast::channel(15);
 
-        let mut c = Cubesat::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
+        let mut c = BounceUnit::new(0, 3, result_tx, request_rx, _timer_rx, FailureMode::Honest);
 
         // Assume that this Bounce unit has entered into the third phase, and signed a noncommit.
         c.slot_info.phase = Phase::Third;
