@@ -19,9 +19,9 @@ It will produce file `.snap`, which you can use to install this project on suppo
 
 ## Binaries
 
-There are two binaries, `flock` and `ground-station`. Simply open two terminals and run each binary in each terminal.
+There are two binaries, `flock` and `ground_station`. Simply open two terminals and run each binary in each terminal.
 
-Currently, the `ground-station` binary will send a request to flock and
+Currently, the `ground_station` binary will send a request to flock and
 upon receiving the resposne, it will terminate.
 
 `flock` binary runs indefinitely, so force terminate by using Ctrl-C, and
@@ -48,15 +48,15 @@ OPTIONS:
     -p <PORT>           Specify an alternate port to use. [default: 50051]
 ```
 
-### ground-station
+### ground_station
 
 ```sh
-$> ./target/debug/ground-station -h
+$> ./target/debug/ground_station -h
 Bounce ground station 0.1.0
 Taegyun Kim <k.taegyun@gmail.com>
 
 USAGE:
-    ground-station [OPTIONS] [log-to-stdout]
+    ground_station [OPTIONS] [log-to-stdout]
 
 FLAGS:
     -h, --help             Prints help information

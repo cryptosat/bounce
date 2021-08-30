@@ -34,8 +34,8 @@ tokio-util = { version = "0.6.3", features = ["full"] }
 tonic-build = "0.4"
 
 [[bin]]
-name = "ground-station"
-path = "src/bin/ground-station.rs"
+name = "ground_station"
+path = "src/bin/ground_station.rs"
 
 [[bin]]
 name = "flock"
