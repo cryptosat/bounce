@@ -23,7 +23,7 @@ pub struct SlotInfo {
     pub phase: Phase,
     // Whether this cubesat has signed a precommit or non-commit for current slot
     pub signed: bool,
-    // Whether this cubesat has aggregated signatures of at least supermajority of num_cubesats
+    // Whether this cubesat has aggregated signatures of at least supermajority of num_bounce_units
     pub aggregated: bool,
     // (id, signature) of precommtis or noncommits received for this slot.
     pub precommits: Vec<Commit>,

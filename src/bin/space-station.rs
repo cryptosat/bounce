@@ -52,14 +52,14 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) 
 }
 
 impl SpaceStation {
-    pub fn new(num_cubesats: u32, timer_tx: &broadcast::Sender<Phase>) -> SpaceStation {
+    pub fn new(num_bounce_units: u32, timer_tx: &broadcast::Sender<Phase>) -> SpaceStation {
         let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
 
         let mut cubesat_infos = Vec::new();
 
-        for id in 0..num_cubesats {
+        for id in 0..num_bounce_units {
             let timer_rx = timer_tx.subscribe();
             let (request_tx, request_rx) = mpsc::channel(25);
 
@@ -67,7 +67,7 @@ impl SpaceStation {
             let handle = tokio::spawn(async move {
                 let mut cubesat = Cubesat::new(
                     id as usize,
-                    num_cubesats,
+                    num_bounce_units,
                     result_tx,
                     request_rx,
                     timer_rx,
@@ -212,7 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 
     let bounce_config = BounceConfig {
-        num_cubesats: 5,
+        num_bounce_units: 5,
         slot_duration: 10,
         phase1_duration: 4,
         phase2_duration: 4,
@@ -221,7 +221,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialized to Stop
     let (timer_tx, _timer_rx) = broadcast::channel(15);
 
-    let comms_hub = SpaceStation::new(bounce_config.num_cubesats, &timer_tx);
+    let comms_hub = SpaceStation::new(bounce_config.num_bounce_units, &timer_tx);
 
     tokio::spawn(async move {
         timer(timer_tx, bounce_config).await;

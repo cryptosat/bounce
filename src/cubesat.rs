@@ -26,7 +26,7 @@ pub struct Cubesat {
     id: usize,
 
     // Configuration for slot
-    num_cubesats: u32,
+    num_bounce_units: u32,
     slot_info: SlotInfo,
 
     public_key: Vec<u8>,
@@ -46,7 +46,7 @@ pub struct Cubesat {
 impl Cubesat {
     pub fn new(
         id: usize,
-        num_cubesats: u32,
+        num_bounce_units: u32,
         result_tx: mpsc::Sender<Commit>,
         request_rx: mpsc::Receiver<Commit>,
         timer_rx: broadcast::Receiver<Phase>,
@@ -61,7 +61,7 @@ impl Cubesat {
 
         Cubesat {
             id,
-            num_cubesats,
+            num_bounce_units,
             slot_info,
             public_key,
             private_key,
@@ -188,9 +188,9 @@ impl Cubesat {
             self.slot_info.noncommits.push(commit.clone());
         }
 
-        if self.slot_info.precommits.len() >= supermajority(self.num_cubesats as usize) {
+        if self.slot_info.precommits.len() >= supermajority(self.num_bounce_units as usize) {
             self.aggregate_and_broadcast(commit).await;
-        } else if self.slot_info.noncommits.len() >= supermajority(self.num_cubesats as usize) {
+        } else if self.slot_info.noncommits.len() >= supermajority(self.num_bounce_units as usize) {
             self.aggregate_and_broadcast(commit).await;
         }
 
@@ -240,9 +240,9 @@ impl Cubesat {
             }
         }
 
-        if self.slot_info.precommits.len() >= supermajority(self.num_cubesats as usize) {
+        if self.slot_info.precommits.len() >= supermajority(self.num_bounce_units as usize) {
             self.aggregate_and_broadcast(commit).await;
-        } else if self.slot_info.noncommits.len() >= supermajority(self.num_cubesats as usize) {
+        } else if self.slot_info.noncommits.len() >= supermajority(self.num_bounce_units as usize) {
             self.aggregate_and_broadcast(commit).await;
         }
     }

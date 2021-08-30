@@ -52,7 +52,7 @@ message Commit {
 service BounceSatellite { rpc Bounce(Commit) returns (Commit); }
 
 message BounceConfig {
-  uint32 num_cubesats = 1;
+  uint32 num_bounce_units = 1;
   // durations are in seconds
   uint32 slot_duration = 2;
   uint32 phase1_duration = 3;
