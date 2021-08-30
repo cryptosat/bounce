@@ -1,6 +1,7 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{
-    configure_log, configure_log_to_file, BounceConfig, Commit, BounceUnit, FailureMode, Phase,
+    configure_log, configure_log_to_file, BounceConfig, BounceUnit, Commit, FailureMode, Phase,
+    SlotConfig,
 };
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::BounceUnit;
@@ -26,11 +27,11 @@ pub struct Flock {
 }
 
 // Timer thread which brodacsts phase transitions.
-async fn timer(timer_tx: broadcast::Sender<Phase>, bounce_config: BounceConfig) {
-    let slot_duration = Duration::from_secs(bounce_config.slot_duration as u64);
+async fn timer(timer_tx: broadcast::Sender<Phase>, slot_config: SlotConfig) {
+    let slot_duration = Duration::from_secs(slot_config.slot_duration as u64);
     let start = Instant::now();
-    let phase2_start = start + Duration::from_secs(bounce_config.phase1_duration as u64);
-    let phase3_start = phase2_start + Duration::from_secs(bounce_config.phase2_duration as u64);
+    let phase2_start = start + Duration::from_secs(slot_config.phase1_duration as u64);
+    let phase3_start = phase2_start + Duration::from_secs(slot_config.phase2_duration as u64);
     let mut slot_ticker = interval(slot_duration);
     let mut phase2_ticker = interval_at(phase2_start, slot_duration);
     let mut phase3_ticker = interval_at(phase3_start, slot_duration);
@@ -211,11 +212,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 
-    let bounce_config = BounceConfig {
-        num_bounce_units: 5,
+    let slot_config = SlotConfig {
         slot_duration: 10,
         phase1_duration: 4,
         phase2_duration: 4,
+    };
+
+    let bounce_config = BounceConfig {
+        num_bounce_units: 5,
+        slot_config: Some(slot_config),
     };
 
     // Initialized to Stop
@@ -224,7 +229,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let comms_hub = Flock::new(bounce_config.num_bounce_units, &timer_tx);
 
     tokio::spawn(async move {
-        timer(timer_tx, bounce_config).await;
+        timer(timer_tx, bounce_config.slot_config.unwrap()).await;
     });
 
     // This installs a BounceSatelliteServer service.
