@@ -197,6 +197,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Specify a directory to save logs.")
                 .default_value("log"),
         )
+        .arg(
+            Arg::with_name("num-bounce-units")
+                .short("b")
+                .help("The number of bounce units in this flock.")
+                .default_value("5"),
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
@@ -212,6 +218,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 
+    let num_bounce_units = matches.value_of("num-bounce_units").unwrap();
+
     let slot_config = SlotConfig {
         slot_duration: 10,
         phase1_duration: 4,
@@ -219,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let bounce_config = BounceConfig {
-        num_bounce_units: 5,
+        num_bounce_units: num_bounce_units.parse()?,
         slot_config: Some(slot_config),
     };
 
