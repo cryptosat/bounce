@@ -57,6 +57,16 @@ message BounceConfig {
   SlotConfig slot_config = 2;
 }
 
+message FlockConfig {
+    enum FailureMode {
+        HONEST = 0;
+        FAIL_ARBITRARY = 1;
+        FAIL_STOP = 2;
+    }
+
+    uint32 num_bounce_units = 1;
+}
+
 message SlotConfig {
   uint32 slot_duration = 1;
   uint32 phase1_duration = 2;
