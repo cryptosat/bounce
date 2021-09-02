@@ -1,11 +1,12 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{
-    configure_log, configure_log_to_file, BounceConfig, BounceUnit, Commit, FailureMode, Phase,
+    configure_log, configure_log_to_file, BounceUnit, Commit, FailureMode, FlockConfig, Phase,
     SlotConfig,
 };
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::BounceUnit;
 use log::info;
+use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::{interval, interval_at, Instant};
@@ -53,12 +54,14 @@ async fn timer(timer_tx: broadcast::Sender<Phase>, slot_config: SlotConfig) {
 }
 
 impl Flock {
-    pub fn new(num_bounce_units: u32, timer_tx: &broadcast::Sender<Phase>) -> Flock {
+    pub fn new(flock_config: FlockConfig, timer_tx: &broadcast::Sender<Phase>) -> Flock {
         let (result_tx, result_rx) = mpsc::channel(25);
 
         let result_rx = Mutex::new(result_rx);
 
         let mut cubesat_infos = Vec::new();
+
+        let num_bounce_units = flock_config.num_bounce_units;
 
         for id in 0..num_bounce_units {
             let timer_rx = timer_tx.subscribe();
@@ -226,18 +229,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         phase2_duration: 4,
     };
 
-    let bounce_config = BounceConfig {
+    let flock_config = FlockConfig {
         num_bounce_units: num_bounce_units.parse()?,
-        slot_config: Some(slot_config),
+        failure_modes: HashMap::new(),
     };
 
     // Initialized to Stop
     let (timer_tx, _timer_rx) = broadcast::channel(15);
 
-    let comms_hub = Flock::new(bounce_config.num_bounce_units, &timer_tx);
+    let comms_hub = Flock::new(flock_config, &timer_tx);
 
     tokio::spawn(async move {
-        timer(timer_tx, bounce_config.slot_config.unwrap()).await;
+        timer(timer_tx, slot_config).await;
     });
 
     // This installs a BounceSatelliteServer service.
