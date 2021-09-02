@@ -1,7 +1,7 @@
 use bounce::bounce_satellite_server::{BounceSatellite, BounceSatelliteServer};
 use bounce::{
-    configure_log, configure_log_to_file, BounceUnit, Commit, FailureMode, FlockConfig, Phase,
-    SlotConfig,
+    configure_log, configure_log_to_file, flock_config::FailureMode, BounceUnit, Commit,
+    FlockConfig, Phase, SlotConfig,
 };
 use clap::{crate_authors, crate_version, App, Arg};
 // use bounce::BounceUnit;
@@ -68,6 +68,11 @@ impl Flock {
             let (request_tx, request_rx) = mpsc::channel(25);
 
             let result_tx = result_tx.clone();
+
+            let failure_mode = flock_config
+                .get_failure_modes(id)
+                .unwrap_or(FailureMode::Honest);
+
             let handle = tokio::spawn(async move {
                 let mut cubesat = BounceUnit::new(
                     id as usize,
@@ -75,7 +80,7 @@ impl Flock {
                     result_tx,
                     request_rx,
                     timer_rx,
-                    FailureMode::Honest,
+                    failure_mode,
                 );
                 cubesat.run().await;
             });
@@ -206,6 +211,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("The number of bounce units in this flock.")
                 .default_value("5"),
         )
+        .arg(
+            Arg::with_name("fail_arbitrary_unit_indices")
+            .help("the idices of fail arbitrary units, each index must be in [0..num-bounce-units)")
+            .multiple(true)
+        )
+        .arg(
+            Arg::with_name("fail_stop_unit_indices")
+            .help("the idices of fail stop units, each index must be in [0..num-bounce-units)")
+            .multiple(true)
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
@@ -221,7 +236,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket_addr = format!("{}:{}", addr, port).parse()?;
 
-    let num_bounce_units = matches.value_of("num-bounce_units").unwrap();
+    let num_bounce_units = matches.value_of("num-bounce_units").unwrap().parse()?;
+
+    let mut failure_modes = HashMap::new();
+
+    let fail_arbitrary_unit_indices = matches.values_of("fail_arbitrary_unit_indices").unwrap();
+    for id in fail_arbitrary_unit_indices {
+        failure_modes.insert(
+            id.parse::<u32>().unwrap(),
+            FailureMode::FailArbitrary.into(),
+        );
+    }
+
+    let fail_stop_unit_indices = matches.values_of("fail_stop_unit_indices").unwrap();
+    for id in fail_stop_unit_indices {
+        let id = id.parse::<u32>().unwrap();
+        if failure_modes.contains_key(&id) {
+            panic!(
+                "bounce unit {} is set to both FailArbitrary and FailStop",
+                id
+            );
+        }
+        failure_modes.insert(id, FailureMode::FailStop.into());
+    }
 
     let slot_config = SlotConfig {
         slot_duration: 10,
@@ -230,8 +267,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let flock_config = FlockConfig {
-        num_bounce_units: num_bounce_units.parse()?,
-        failure_modes: HashMap::new(),
+        num_bounce_units,
+        failure_modes,
     };
 
     // Initialized to Stop

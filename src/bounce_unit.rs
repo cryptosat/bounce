@@ -1,19 +1,10 @@
 use crate::commit::CommitType;
-use crate::{supermajority, Commit, Phase, SlotInfo};
+use crate::{supermajority, Commit, flock_config::FailureMode, Phase, SlotInfo};
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use log::info;
 use rand::{thread_rng, Rng};
 use tokio::sync::{broadcast, mpsc};
-
-pub enum FailureMode {
-    // Follows the protocol and has no impostor.
-    Honest = 1,
-    // Sends precommit / noncommit messages at an arbitrary time.
-    FailArbitrary,
-    // Does not send precommit / noncommit messages at all.
-    FailStop,
-}
 
 /// Bounce Unit invariants
 /// 1. A Bounce unit will never send a precommit or non-commit if it has already sent a precommit
