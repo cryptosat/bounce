@@ -1,7 +1,7 @@
 use bls_signatures_rs::bn256::Bn256;
 use bls_signatures_rs::MultiSignature;
 use bounce::bounce_satellite_client::BounceSatelliteClient;
-use bounce::{commit::CommitType, configure_log, configure_log_to_file, Commit};
+use bounce::{commit::CommitType, configure_log, configure_log_to_file, Commit, SlotConfig};
 use clap::{crate_authors, crate_version, App, Arg};
 use log::info;
 use rand::{thread_rng, Rng};
@@ -41,6 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Specify a directory to save logs.")
                 .default_value("log"),
         )
+        .arg(
+            Arg::with_name("slot-config")
+                .help("slot duration, phase1 duration, and phase2 duration. expects exactly 3 elements")
+                .multiple(true)
+                .default_value("10,4,4"),
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
@@ -58,8 +64,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = BounceSatelliteClient::connect(dst).await?;
 
-    let slot_duration = Duration::from_secs(10);
-    let mut slot_ticker = interval(slot_duration);
+    let slot_config_arg: Vec<u32> = matches
+        .values_of("slot-config")
+        .unwrap()
+        .map(|s| s.parse::<u32>().unwrap())
+        .collect();
+
+    let slot_config = SlotConfig {
+        slot_duration: slot_config_arg[0],
+        phase1_duration: slot_config_arg[1],
+        phase2_duration: slot_config_arg[2],
+    };
+
+    let mut slot_ticker = interval(Duration::from_secs(slot_config.slot_duration as u64));
 
     for _ in 0..10 {
         tokio::select! {

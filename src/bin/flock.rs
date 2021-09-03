@@ -221,6 +221,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .help("the idices of fail stop units, each index must be in [0..num-bounce-units)")
             .multiple(true)
         )
+        .arg(
+            Arg::with_name("slot-config")
+                .help("slot duration, phase1 duration, and phase2 duration. expects exactly 3 elements")
+                .multiple(true)
+                .default_value("10,4,4"),
+        )
         .get_matches();
 
     let addr = matches.value_of("addr").unwrap();
@@ -260,10 +266,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         failure_modes.insert(id, FailureMode::FailStop.into());
     }
 
+    let slot_config_arg: Vec<u32> = matches
+        .values_of("slot-config")
+        .unwrap()
+        .map(|s| s.parse::<u32>().unwrap())
+        .collect();
+
     let slot_config = SlotConfig {
-        slot_duration: 10,
-        phase1_duration: 4,
-        phase2_duration: 4,
+        slot_duration: slot_config_arg[0],
+        phase1_duration: slot_config_arg[1],
+        phase2_duration: slot_config_arg[2],
     };
 
     let flock_config = FlockConfig {
