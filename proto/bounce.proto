@@ -52,20 +52,34 @@ message Commit {
 service BounceSatellite { rpc Bounce(Commit) returns (Commit); }
 
 message FlockConfig {
-    enum FailureMode {
-        HONEST = 0;
-        FAIL_ARBITRARY = 1;
-        FAIL_STOP = 2;
-    }
+  enum FailureMode {
+    HONEST = 0;
+    FAIL_ARBITRARY = 1;
+    FAIL_STOP = 2;
+  }
 
-    uint32 num_bounce_units = 1;
+  uint32 num_bounce_units = 1;
 
-    // If not set, defaults to HONEST.
-    map<uint32, FailureMode> failure_modes = 2;
+  // If not set, defaults to HONEST.
+  map<uint32, FailureMode> failure_modes = 2;
 }
 
 message SlotConfig {
   uint32 slot_duration = 1;
   uint32 phase1_duration = 2;
   uint32 phase2_duration = 3;
+}
+
+message ExperimentConfig {
+  enum Strategy {
+    RANDOM = 0;
+    INTERVAL = 1;
+    MANUAL = 2;
+  }
+
+  Strategy strategy = 1;
+
+  optional uint32 interval_ms = 2;
+
+  repeated uint32 manual_ms = 3;
 }
